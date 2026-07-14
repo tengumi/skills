@@ -1,0 +1,500 @@
+{
+  "_meta": {
+    "schema_version": 3,
+    "purpose": "Каталог условных task families этапа B. harness-production-plan превращает его в applicability matrix и создаёт только доказанно нужные задачи.",
+    "usage": [
+      "Не копировать этот файл в tasks.json.",
+      "Не использовать фиксированный диапазон id; выбирать следующий свободный numeric id.",
+      "Для каждой dimension сначала установить required, already_satisfied, not_applicable или blocked.",
+      "Разворачивать per_boundary и per_process отдельно.",
+      "Все paths, source sections и approvals разрешить до persistence task.",
+      "Для многорежимного use_skill записывать exact mode только в общем поле skill_mode."
+    ],
+    "status_contract": {
+      "required": "Target требует слой, current evidence доказывает gap.",
+      "already_satisfied": "Требование уже выполнено и имеет проверяемое evidence.",
+      "not_applicable": "Approved target topology доказывает неприменимость.",
+      "blocked": "Обязательное решение, contract, owner или approval отсутствует."
+    },
+    "global_invariants": [
+      "Prototype workflow, prompts, provider/model/params, schemas, retry/timeout, error/terminal/publish semantics не меняются без отдельного approved behavior-change task.",
+      "Одна implementation task меняет один layer/owner.",
+      "Template, production neighbour и release reference сохраняют разные source roles и provenance.",
+      "No-op, placeholder и inapplicable tasks не создаются.",
+      "make verify дополняется, а не заменяет layer-specific runtime evidence."
+    ]
+  },
+  "required_dimensions": [
+    "identity_and_clean_checkout",
+    "clean_install_and_dependency_graph",
+    "target_data_boundaries",
+    "process_topology",
+    "database_ownership_and_migrations",
+    "effective_runtime_config",
+    "external_adapters_and_generated_clients",
+    "process_registration_and_di",
+    "residual_layout_and_dead_code",
+    "structured_logging",
+    "health_readiness_and_metrics",
+    "telemetry",
+    "runtime_bundle_and_resources",
+    "container_build",
+    "ci_cd_and_deploy_identity",
+    "permanent_governance",
+    "quality_golden_dataset",
+    "quality_golden_evaluation",
+    "integration_evaluation",
+    "clean_release_and_stand",
+    "operations_runbook"
+  ],
+  "phase_order": [
+    {
+      "phase": "B0",
+      "gate": "Task-ready checkout, canonical identity and reproducible dependency baseline."
+    },
+    {
+      "phase": "B1",
+      "gate": "Approved boundary, process topology and DB ownership decisions."
+    },
+    {
+      "phase": "B2",
+      "gate": "Effective config, adapters, process wiring and persistence work."
+    },
+    {
+      "phase": "B3",
+      "gate": "Residual layout is resolved before observability and packaging freeze paths."
+    },
+    {
+      "phase": "B4",
+      "gate": "Bundle, container, CI/deploy and permanent safety gates."
+    },
+    {
+      "phase": "B5",
+      "gate": "Integration evaluation, clean release/stand proof and runbook handoff."
+    }
+  ],
+  "task_families": [
+    {
+      "key": "identity-remediation",
+      "phase": "B0",
+      "order": 10,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "deploy",
+      "applies_if": "harness-doctor found inconsistent repository, service, package, image, job, queue or schema identity.",
+      "prerequisites": [
+        "Classified token inventory exists.",
+        "Domain and external-service tokens are excluded from rename.",
+        "Protected-path approvals are recorded."
+      ],
+      "title_template": "Согласовать canonical identity во всех runtime/build/deploy surfaces",
+      "acceptance_template": [
+        "Один canonical identity matrix подтверждён owner/source docs.",
+        "Classified rename выполнен без глобальной замены domain tokens.",
+        "Negative search, clean import and applicable build smoke are green."
+      ]
+    },
+    {
+      "key": "dependency-baseline",
+      "phase": "B0",
+      "order": 20,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "dependency",
+      "applies_if": "Clean install/import fails or target, root workspace, lock and release dependency evidence diverge.",
+      "prerequisites": [
+        "Dependency policy and owner approvals are known.",
+        "Target-specific imports are inventoried."
+      ],
+      "title_template": "Восстановить воспроизводимый dependency baseline",
+      "acceptance_template": [
+        "Root/project/lock/release differences classified instead of wholesale replacement.",
+        "Target-specific dependencies and approved shared pins are preserved.",
+        "Clean external install and import smoke pass without warm-environment leakage."
+      ]
+    },
+    {
+      "key": "boundary-contract",
+      "phase": "B1",
+      "order": 30,
+      "cardinality": "per_boundary",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "contract",
+      "applies_if": "A file/parity boundary must be replaced, or an existing external integration needs exact production proof.",
+      "prerequisites": [
+        "Boundary classification is known.",
+        "Owner and source of truth are named.",
+        "pre-industrialization-spec stage_b_plan gate is approved."
+      ],
+      "title_template": "Подготовить production contract для human approval",
+      "acceptance_template": [
+        "Exact pre-industrialization-spec boundary card is filled from a versioned authoritative contract and sanitized sample, or a greenfield proposal is prepared for the named owner.",
+        "Method/path or exact tool/topic, headers, request, response, errors, schema/versioning, auth, ordering, idempotency, retries, timeout and SLO are explicit.",
+        "Observed File IO semantics remain prototype evidence and are not misrepresented as a pre-existing endpoint.",
+        "The agent does not set APPROVED; human approver/date/evidence and contract revision are present before this prerequisite is considered complete."
+      ]
+    },
+    {
+      "key": "process-topology-decision",
+      "phase": "B1",
+      "order": 40,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "process",
+      "applies_if": "Approved source processes do not yet identify every required library, CLI, API, worker, scheduler or init process.",
+      "prerequisites": [
+        "Target architecture owner is known."
+      ],
+      "title_template": "Утвердить target process topology и entrypoint matrix",
+      "acceptance_template": [
+        "Каждый required process, import target, command, input/output и lifecycle owner записан.",
+        "Unobserved API/queue/process is not inferred from prototype shape.",
+        "Source, bundled and image execution modes have planned smoke evidence."
+      ]
+    },
+    {
+      "key": "database-ownership-decision",
+      "phase": "B1",
+      "order": 50,
+      "cardinality": "per_database",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "db",
+      "applies_if": "A required process reads, writes or migrates a database/schema and ownership or migration policy is unresolved.",
+      "prerequisites": [
+        "Database usage is present in approved topology."
+      ],
+      "title_template": "Подтвердить DB/schema ownership и migration policy",
+      "acceptance_template": [
+        "Owner, target schema, startup policy and safe isolated/read-only validation mode are explicit.",
+        "Shared/foreign database is not reset, stamped or migrated by assumption."
+      ]
+    },
+    {
+      "key": "effective-runtime-config",
+      "phase": "B2",
+      "order": 60,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "config",
+      "applies_if": "Approved process modes require config not already proven equivalent in source and packaged runtime.",
+      "prerequisites": [
+        "Process topology and config source precedence are approved.",
+        "New dependency approval exists when needed."
+      ],
+      "title_template": "Довести effective runtime config для всех процессов",
+      "acceptance_template": [
+        "Prototype business defaults remain exact; secrets are externalized without real values.",
+        "Overlay/source/cwd/resource precedence is tested per applicable process and packaged mode.",
+        "Required config fails early without import-time network/DB side effects."
+      ]
+    },
+    {
+      "key": "external-adapter",
+      "phase": "B2",
+      "order": 70,
+      "cardinality": "per_boundary",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "adapter",
+      "applies_if": "An approved boundary contract exists and current production adapter/mapping is absent or incorrect.",
+      "prerequisites": [
+        "boundary-contract is approved.",
+        "pre-industrialization-spec adapter gate is approved.",
+        "Live authorization is separate from execution transport."
+      ],
+      "title_template": "Реализовать и проверить adapter для approved boundary",
+      "acceptance_template": [
+        "Generated client has spec/version, reproducible generation and regeneration policy when applicable.",
+        "Exact method/path or tool/topic, request/response/error bodies, auth/headers, aliases, encoding, absent/null/empty/date/enum mapping and prerequisites are tested.",
+        "Terminal error remains error and publish/side effect occurs only in approved success state.",
+        "Temporary parity adapter is removed only after mapping parity is green.",
+        "Live verification, when applicable, is a separate harness-eval:live task with its own approval gate."
+      ]
+    },
+    {
+      "key": "process-wiring",
+      "phase": "B2",
+      "order": 80,
+      "cardinality": "per_process",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "process",
+      "applies_if": "An approved process lacks real registration, DI wiring, invocation or terminal-state proof.",
+      "prerequisites": [
+        "Process topology is approved.",
+        "Required config and boundary contracts exist."
+      ],
+      "title_template": "Подключить и проверить production process",
+      "acceptance_template": [
+        "Import target and documented command start the real process.",
+        "Registry/discovery, payload mapping, DI, service call and terminal/publish chain are exercised behaviorally.",
+        "Framework success log alone is not accepted as business-success evidence."
+      ]
+    },
+    {
+      "key": "database-migrations",
+      "phase": "B2",
+      "order": 90,
+      "cardinality": "per_database",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "db",
+      "applies_if": "Database/migrations are required and source, bundle or target DB revision evidence has a gap.",
+      "prerequisites": [
+        "Database ownership and safe validation mode are approved.",
+        "Migration protected-path approval is recorded."
+      ],
+      "title_template": "Согласовать source, bundle и DB migration state",
+      "acceptance_template": [
+        "Source revisions, bundled revisions, heads and DB current revision are inventoried separately.",
+        "Packaging miss, missing source migration and stale/foreign DB are not conflated.",
+        "No migration-capable smoke targets unknown/shared DB."
+      ]
+    },
+    {
+      "key": "residual-layout",
+      "phase": "B3",
+      "order": 100,
+      "cardinality": "per_approved_batch",
+      "use_skill": "harness-team-layout-alignment",
+      "applies_if": "Read-only audit proves residual scaffold/layout drift or dead-code candidates after parity port.",
+      "prerequisites": [
+        "Audit mode is complete.",
+        "Exact paths are human-approved.",
+        "Indirect registration allowlist and DB/migration approvals exist."
+      ],
+      "title_template": "Исправить подтверждённый residual layout drift",
+      "acceptance_template": [
+        "Only approved exact paths move/delete; canonical empty template layers remain.",
+        "Static candidate, reachability, human checkpoint and behavior/process smoke all agree.",
+        "Contract/golden/build remain green; green tests alone are not proof of dead code."
+      ]
+    },
+    {
+      "key": "structured-logging",
+      "phase": "B3",
+      "order": 110,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "observability",
+      "applies_if": "Approved common/team logging is not already reused or required context/redaction proof is missing.",
+      "prerequisites": [
+        "Process topology is stable."
+      ],
+      "title_template": "Подключить structured logging без дублирования common middleware",
+      "acceptance_template": [
+        "Common middleware/init is reused before local implementation.",
+        "Correlation, component/event, duration, status/error fields propagate across processes.",
+        "Secrets and raw prompts/responses are redacted by default."
+      ]
+    },
+    {
+      "key": "health-readiness-metrics",
+      "phase": "B3",
+      "order": 120,
+      "cardinality": "per_process",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "observability",
+      "applies_if": "Approved runtime requires health/readiness/metrics and common/template coverage is absent or unproven.",
+      "prerequisites": [
+        "Exact mechanism/path comes from approved team source.",
+        "Process topology is stable."
+      ],
+      "title_template": "Добавить применимые health/readiness/metrics probes",
+      "acceptance_template": [
+        "Exact approved path/mechanism is used; generic path is not invented.",
+        "Probe is cheap and does not call expensive external business systems by default.",
+        "Applicable process probe is exercised behaviorally."
+      ]
+    },
+    {
+      "key": "telemetry",
+      "phase": "B3",
+      "order": 130,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "observability",
+      "applies_if": "Approved topology/team baseline requires telemetry and it is not already satisfied.",
+      "prerequisites": [
+        "Dependency approval exists when needed.",
+        "Process topology is stable."
+      ],
+      "title_template": "Подключить approved telemetry без чувствительных payloads",
+      "acceptance_template": [
+        "Common/team instrumentation is reused where available.",
+        "All applicable processes are covered and remain safe without collector/backend.",
+        "Only metadata is recorded; secrets and raw inputs/outputs are excluded."
+      ]
+    },
+    {
+      "key": "runtime-bundle",
+      "phase": "B4",
+      "order": 140,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "deploy",
+      "applies_if": "Approved release archetype builds a bundle/artifact and dependency/resource/process inclusion is not proven.",
+      "prerequisites": [
+        "Dependency baseline, process wiring and DB safety gates are green.",
+        "Build-file approval is recorded."
+      ],
+      "title_template": "Собрать и запустить production runtime artifact",
+      "acceptance_template": [
+        "Dynamic modules, generated clients, migrations, prompts and runtime resources have source-to-artifact inventory.",
+        "Each applicable artifact process starts and reaches a safe smoke terminal state.",
+        "Installed in build environment is not confused with included in artifact."
+      ]
+    },
+    {
+      "key": "container-build",
+      "phase": "B4",
+      "order": 150,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "deploy",
+      "applies_if": "Approved release archetype requires a container and current build/runtime proof has a gap.",
+      "prerequisites": [
+        "Runtime artifact gate is green or not applicable.",
+        "Container/build protected-path approval is recorded."
+      ],
+      "title_template": "Собрать и проверить target container",
+      "acceptance_template": [
+        "Approved base/runtime pattern and target-specific identity are used.",
+        "No secrets or raw runtime artifacts enter build context/image.",
+        "Image starts every applicable process; deferred smoke cannot satisfy done."
+      ]
+    },
+    {
+      "key": "ci-cd-deploy",
+      "phase": "B4",
+      "order": 160,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "deploy",
+      "applies_if": "Approved deployment requires CI/CD or deploy metadata not already proven for target identity.",
+      "prerequisites": [
+        "Deploy identifiers are resolved.",
+        "Protected-path approval is recorded.",
+        "Build/process gates are green."
+      ],
+      "title_template": "Настроить CI/CD и deploy metadata для target identity",
+      "acceptance_template": [
+        "Template, production-neighbour and release roles retain separate provenance.",
+        "Executable deploy identifiers are real/approved; TODO placeholders cannot pass.",
+        "CI runs clean install, import, verify, build and applicable artifact process smoke; live tests remain gated."
+      ]
+    },
+    {
+      "key": "permanent-governance",
+      "phase": "B4",
+      "order": 170,
+      "cardinality": "single",
+      "use_skill": "harness-governance-gates",
+      "applies_if": "Repository/CI lacks persistent guards for its applicable secrets, artifacts, generated outputs or prototype contract.",
+      "prerequisites": [
+        "Repository policies and protected paths are known."
+      ],
+      "title_template": "Добавить постоянные governance gates",
+      "acceptance_template": [
+        "Only applicable artifact/secret/PII/generated/contract guards are added.",
+        "Safe synthetic failures prove each guard blocks without disclosing values.",
+        "Existing CI/pre-commit is not weakened; one-off pre-commit review is not used as implementation route."
+      ]
+    },
+    {
+      "key": "quality-golden-synthesis",
+      "phase": "B5",
+      "order": 172,
+      "cardinality": "per_eval_question",
+      "use_skill": "harness-golden",
+      "applies_if": "An approved external quality standard requires a new or stale reference-based golden dataset; prototype parity is not the truth source.",
+      "prerequisites": [
+        "golden-spec intent, accepted count, seed, agent I/O contract and data policy are explicit.",
+        "Input references and truth sources are separated, versioned and readable.",
+        "A strongest-available oracle and independent verification path can be probed."
+      ],
+      "title_template": "Синтезировать и выпустить oracle-verified golden dataset",
+      "acceptance_template": [
+        "Pilot proves oracle, realism and verifier isolation before batch scale-up.",
+        "Only independently derived hard-gate cases enter the released dataset; ambiguity and disagreement remain in quarantine.",
+        "Dataset, audit, quarantine and provenance reports are sanitized and versioned."
+      ]
+    },
+    {
+      "key": "quality-golden-evaluation",
+      "phase": "B5",
+      "order": 175,
+      "cardinality": "per_eval_question",
+      "use_skill": "harness-eval",
+      "skill_mode": "golden",
+      "applies_if": "A released golden dataset exists and the target agent quality must be measured against it.",
+      "prerequisites": [
+        "Released dataset manifest, audit, hash, compare/equivalence rule and threshold are explicit.",
+        "Agent/model/config revision and evaluation data policy are fixed."
+      ],
+      "title_template": "Оценить agent по released golden dataset",
+      "acceptance_template": [
+        "Only accepted cases are executed; quarantine and expected outputs are not exposed to the agent.",
+        "Metrics, slices, repeatability and discrepancies use the declared rules and immutable expected outputs.",
+        "Report records dataset and agent revisions and does not rewrite failed golds."
+      ]
+    },
+    {
+      "key": "integration-evaluation",
+      "phase": "B5",
+      "order": 180,
+      "cardinality": "per_eval_question",
+      "use_skill": "harness-eval",
+      "skill_mode": "live",
+      "applies_if": "A production boundary or process invariant requires approved live/runtime proof beyond deterministic parity tests.",
+      "prerequisites": [
+        "Eval question, class, threshold and data policy are explicit.",
+        "Live flag/secure-stage authorization exists independently of execution transport."
+      ],
+      "title_template": "Доказать production invariant через integration evaluation",
+      "acceptance_template": [
+        "Same logical inputs and approved mapping are compared with terminal/error/publish invariants.",
+        "Repeatability and expected variance are handled where applicable.",
+        "Reports are sanitized; raw data, credentials and live outputs are not committed."
+      ]
+    },
+    {
+      "key": "clean-release-stand",
+      "phase": "B5",
+      "order": 190,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "stand",
+      "verification_route": {
+        "use_skill": "harness-eval",
+        "skill_mode": "live"
+      },
+      "applies_if": "Full production readiness is the target outcome.",
+      "prerequisites": [
+        "All required B0-B4 tasks are green.",
+        "Secure stand and side-effect approvals exist."
+      ],
+      "title_template": "Доказать clean release и stand readiness",
+      "acceptance_template": [
+        "Clean install, import, verify, build, source/artifact/image processes, DB-safe startup and boundary mapping matrix is complete.",
+        "Sanitized stand smoke proves expected node/boundary/terminal/publish path.",
+        "Each failing layer becomes a separate corrective task; this task does not mix fixes."
+      ]
+    },
+    {
+      "key": "operations-runbook",
+      "phase": "B5",
+      "order": 200,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "runbook",
+      "applies_if": "An operated service/process requires a handoff runbook and current documentation lacks proven scenarios.",
+      "prerequisites": [
+        "Real process, boundary and stand failure modes are known."
+      ],
+      "title_template": "Собрать operations runbook из доказанных failure modes",
+      "acceptance_template": [
+        "Only applicable observed or approved scenarios are documented.",
+        "Each scenario has symptoms, safe diagnostics, remediation, escalation owner and evidence source.",
+        "Unresolved owner/namespace is a blocker or explicit owned defer, not a silent TODO."
+      ]
+    }
+  ]
+}

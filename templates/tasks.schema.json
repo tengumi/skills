@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tasks.schema.json",
+  "title": "Harness task queue",
+  "type": "object",
+  "required": [
+    "version",
+    "current_sprint",
+    "backlog",
+    "discovered_bugs",
+    "tech_debt",
+    "completed_sprint"
+  ],
+  "properties": {
+    "version": {"type": "string"},
+    "last_updated": {"type": ["string", "null"]},
+    "current_sprint": {"$ref": "#/$defs/taskList"},
+    "backlog": {"$ref": "#/$defs/taskList"},
+    "discovered_bugs": {"$ref": "#/$defs/taskList"},
+    "tech_debt": {"$ref": "#/$defs/taskList"},
+    "completed_sprint": {"$ref": "#/$defs/taskList"}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "taskList": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/task"}
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "type", "priority", "status", "acceptance_criteria"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z]+-[0-9]+$"},
+        "title": {"type": "string", "minLength": 1},
+        "type": {"enum": ["feat", "fix", "refactor", "debt", "bug"]},
+        "priority": {"enum": ["high", "medium", "low"]},
+        "status": {"enum": ["open", "in_progress", "blocked", "done"]},
+        "use_skill": {"type": "string", "pattern": "^harness-[a-z0-9-]+$"},
+        "skill_mode": {"type": "string"},
+        "acceptance_criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "files_hint": {"type": "array", "items": {"type": "string"}},
+        "ported_from": {"type": "array", "items": {"type": "string"}},
+        "approvals": {"type": "array"},
+        "notes": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"use_skill": {"const": "harness-eval"}},
+            "required": ["use_skill"]
+          },
+          "then": {
+            "required": ["skill_mode"],
+            "properties": {
+              "skill_mode": {"enum": ["golden", "prototype-parity", "live"]}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"use_skill": {"const": "harness-golden"}},
+            "required": ["use_skill"]
+          },
+          "then": {
+            "not": {"required": ["skill_mode"]}
+          }
+        }
+      ],
+      "additionalProperties": true
+    }
+  }
+}

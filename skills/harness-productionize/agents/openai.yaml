@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Productionize"
+  short_description: "Ведёт опромышливание до следующего checkpoint"
+  default_prompt: "Примени $harness-productionize и продолжай только до следующего человеческого checkpoint."

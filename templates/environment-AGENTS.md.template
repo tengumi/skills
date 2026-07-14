@@ -1,0 +1,41 @@
+# Shared execution policy
+
+Этот необязательный шаблон нужен только для среды, где часть команд должна
+исполняться через `harness-watcher`. Заполненный файл размещается на уровне,
+который ваш Codex-клиент использует как общую инструкцию. Репозиторный
+`AGENTS.md` по-прежнему описывает конкретный сервис.
+
+## Environment
+
+- Runtime доступен: `<direct | watcher only | mixed>`
+- Remote repository root: `<configured outside this file>`
+- Local execution root: `<configured outside this file>`
+
+## Command routing
+
+Через `harness-request-exec`:
+
+- `<commands that policy forbids locally>`
+- `<commands requiring workstation runtime>`
+
+Напрямую:
+
+- безопасные read-only inspection-команды;
+- `<commands explicitly allowed by environment policy>`.
+
+Если route не определён, остановиться и запросить решение. Watcher является
+transport, а не разрешением на live сеть, shared DB или внешний side effect.
+
+## Queue paths
+
+- Requests: `docs/harness/exec-requests/{request_id}.json`
+- Reports: `docs/harness/exec-reports/{request_id}.json`
+- Processed: `docs/harness/exec-processed/{request_id}.json`
+
+Runtime JSON в этих каталогах должен быть исключён из feature commits.
+
+## Safety
+
+- Не помещать secrets в команды, request, report или audit log.
+- Protected paths и branches брать из repo `AGENTS.md` и team policy.
+- После трёх одинаковых ошибок вызвать tasks-mcp blocker flow и остановиться.

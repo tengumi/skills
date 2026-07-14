@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Golden"
+  short_description: "Синтезирует проверяемые golden-датасеты"
+  default_prompt: "Примени $harness-golden к golden-spec.yaml и создай pilot-batch с независимой oracle-проверкой."

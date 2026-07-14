@@ -1,0 +1,78 @@
+# <SERVICE_NAME>
+
+## Назначение
+
+<Что делает сервис, кто его вызывает и какой результат получает.>
+
+## Источники истины
+
+- Бизнес-поведение prototype: `<PROTOTYPE_PATH>` и `docs/harness/prototype-contract.json`.
+- Архитектура target: `<TEAM_TEMPLATE_OR_DOCS>`.
+- Новые внешние boundaries: только approved contracts из `docs/harness/`.
+- Очередь: `docs/harness/tasks.json`; lifecycle ведёт tasks-mcp.
+
+## Стек
+
+- Язык/runtime: `<...>`
+- Framework: `<...>`
+- Package/build tool: `<...>`
+
+## Быстрые команды
+
+```bash
+<INSTALL_COMMAND>
+<VERIFY_COMMAND>
+<DEV_OR_SMOKE_COMMAND>
+```
+
+Не оставлять placeholder-команду после bootstrap. Если команда неизвестна,
+зафиксировать blocker, а не изобретать target.
+
+## Карта кода
+
+- `<path>` — `<responsibility>`
+- `<path>` — `<responsibility>`
+- `<path>` — `<responsibility>`
+
+## Data boundaries
+
+| Данные | Prototype mechanism | Approved target mechanism | Owner/contract |
+|---|---|---|---|
+| `<input/output>` | `<file/in-memory/external>` | `<OPEN or approved>` | `<owner/path>` |
+
+Отсутствующий в prototype endpoint/tool/protocol не восстанавливать из
+догадок. До approval допустим temporary file-backed/in-memory adapter.
+
+## Execution policy
+
+- Команды выполнять напрямую, если среда и policy это разрешают.
+- `harness-request-exec` использовать только когда watcher обязателен или
+  подходящий runtime локально недоступен.
+- Live network/LLM/DB/API side effect требует отдельного approval независимо от
+  способа запуска.
+
+## Boundaries
+
+- Protected branches: `<main/master/develop/release policy>`.
+- Protected paths: `<CI/Docker/migrations/dependencies/generated files>`.
+- Secrets, raw LLM/RAG output, PII и confidential runtime data не коммитить.
+- Team-owned docs не переписывать; расхождение оформлять proposal.
+
+## Протокол задачи
+
+1. Прочитать этот файл, doctor report и текущую задачу.
+2. Claim ровно одну задачу через tasks-mcp.
+3. Передать `use_skill` и `skill_mode` без догадок.
+4. Зафиксировать baseline, изменить только acceptance scope.
+5. Выполнить scoped и repository verify.
+6. Пройти `harness-pre-commit-check`, commit и submit с evidence.
+7. Убедиться, что task branch чист и queue lifecycle не попал в feature-diff.
+
+## Harness docs
+
+- `docs/harness/environment-doctor.md`
+- `docs/harness/prototype-analysis.md`
+- `docs/harness/ds-precheck.md`
+- `docs/harness/prototype-contract.json`
+- `docs/harness/production-applicability.md`
+- `docs/harness/tasks.json`
