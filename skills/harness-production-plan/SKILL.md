@@ -1,6 +1,6 @@
 ---
 name: harness-production-plan
-description: "Строит evidence-based план этапа B после parity-переноса: проверяет применимость production-срезов, зависимости и approvals, затем создаёт упорядоченные тонкие задачи с exact harness routes и динамическими id. Используй после harness-extract-prod и до harness-production-readiness, когда нужно сформировать или пересобрать очередь production-доводки без фиксированного T-101 шаблона."
+description: "Строит evidence-based план этапа B после parity-переноса: проверяет применимость production-срезов, зависимости и технические prerequisites, затем создаёт упорядоченные тонкие задачи с exact harness routes и динамическими id. Используй после harness-extract-prod и до harness-production-readiness, когда нужно сформировать или пересобрать очередь production-доводки без фиксированного T-101 шаблона."
 ---
 
 # harness-production-plan
@@ -37,12 +37,13 @@ skills, обязательный `skill_mode` из созданных задач
    названных template, production-neighbour и release-reference ролей;
 5. текущий target code, process entrypoints, dependency/build surface,
    integration/data-boundary inventory и `structure-audit.md`, если он существует;
-6. human-owned `docs/harness/pre-industrialization-spec.md`: вручную подтвердить
-   `stage_b_plan=APPROVED/VERIFIED`, применимые sections, owners/mechanisms и
-   human sign-off; затем `docs/harness/data-boundaries.md` как короткий
-   индекс boundary cards, approved target contracts/topology/owners и записанные
-   approvals. Неизвестное сохранять как blocker, а не заполнять по примеру
-   соседнего сервиса;
+6. `docs/harness/pre-industrialization-spec.md`: прочитать предоставленные
+   операции, versioned contracts, addresses/config keys, auth references,
+   БД/хранилища и Jenkins/deploy-реквизиты; затем
+   `docs/harness/data-boundaries.md`, если техническая карта уже создана.
+   Отсутствующий или неполный файл является основанием для bounded contract task,
+   а не запретом на планирование. Неизвестное сохранять как blocker, а не
+   заполнять по примеру соседнего сервиса;
 7. все секции `tasks.json`, чтобы выбрать следующие свободные numeric ids.
 
 Если prototype contract или `harness-eval:prototype-parity` этапа A не зелёный,
@@ -50,13 +51,12 @@ production queue не создавать. `harness-golden` создаёт опц
 dataset, а `harness-eval:golden` оценивает по нему agent; ни один не является
 gate этапа B без отдельного human decision.
 
-Если `stage-b-plan` gate не утверждён, показать decision packet и остановиться
-до записи queue. Если он утверждён, но отдельные exact contracts ещё `OPEN`,
-план может содержать только bounded acquisition/design задачи для них. Adapter
-implementation task становится claimable лишь после
-`adapter_implementation=APPROVED/VERIFIED`, заполненной exact boundary card и
-ручной проверки, что approval scope покрывает задачу; планировщик явно записывает
-этот prerequisite.
+План этапа B всё равно показывается человеку до записи очереди. Для конкретного
+внешнего взаимодействия implementation task доступна, когда matching-секция
+`data-boundaries.md` не ниже `MAPPED`: известны exact operation, contract
+revision, auth mechanism и mapping, а material conflicts отсутствуют. Иначе
+план содержит только bounded contract-acquisition/design task; несвязанные
+B-срезы продолжаются.
 
 ## Workflow
 
@@ -65,40 +65,45 @@ implementation task становится claimable лишь после
 Создать `docs/harness/production-applicability.md`. Для каждого dimension из
 asset записать:
 
+- версии или хеши паспорта подключений, `data-boundaries.md`, prototype/parity evidence
+  и production patterns, от которых зависит план;
 - current fact и evidence path/command;
-- approved target source и provenance;
+- authoritative target source и provenance;
 - статус: `required`, `already_satisfied`, `not_applicable` или `blocked`;
 - exact target/test paths, если они уже утверждены;
-- prerequisites и approvals: protected files, dependency, live system, DB owner;
+- технические prerequisites и, только если применимо, approvals на protected
+  files, dependency, live system или destructive DB action;
 - layer-specific verification.
-- applicable gate из `pre-industrialization-spec.md`, exact boundary-card anchor
-  и contract revision/hash для boundary-dependent dimension.
+- применимую запись из `pre-industrialization-spec.md`, точную секцию
+  `data-boundaries.md` и версию/хеш официального описания для зависимого слоя.
 
 Проверять внешние boundaries по одной, процессы по одному, source/frozen/image
 режимы отдельно. `UNKNOWN` не является пятым статусом: неизвестный обязательный
-факт — `blocked` с owner и decision needed.
+факт — `blocked` с точным описанием недостающего contract/config/deploy input.
 
 Если найдены residual template tokens, спорная раскладка или кандидаты dead
 code, сначала выполнить `harness-team-layout-alignment` в read-only audit mode.
 Cleanup family не создавать без `structure-audit.md` и human-approved exact
 paths.
 
-### 2. Сначала вынести решения
+### 2. Сначала вынести недостающие факты и решения
 
-До implementation tasks создать отдельные decision/contract-acquisition задачи,
-если не утверждены:
+До implementation tasks создать отдельные contract-acquisition/design задачи,
+если неизвестны:
 
-- data owner/source of truth и target boundary contract;
+- source of truth, exact operation или target boundary contract;
 - process topology: library/CLI/API/worker/scheduler/init-db;
 - service/build/deploy identity;
-- DB/schema owner и migration policy;
-- protected/dependency/live approvals.
+- DB/schema и migration policy;
+- protected/dependency/live authorization, только когда оно требуется действию.
 
 Зависимые tasks оставить в backlog/blocked plan, не делать их исполняемыми через
 placeholder или TODO.
 
-`data-boundaries.md` не дублирует endpoint schema: он индексирует boundary id,
-prototype evidence, owner/status и ссылку на точную карточку human-owned spec.
+`data-boundaries.md` заполняется Codex из prototype evidence, паспорта
+подключений и официального описания. Он фиксирует только нужные реализации
+технические факты, mapping и проверки, не копируя OpenAPI целиком. Человек не
+транскрибирует туда доступные схемы вручную.
 
 ### 3. Развернуть только применимые task families
 
@@ -147,17 +152,20 @@ acceptance/notes и держать заблокированные волны в 
   "ported_from": ["<approved source section with provenance>"],
   "acceptance_criteria": [
     "APPLICABILITY и gap доказаны.",
-    "Prerequisites/approvals записаны.",
+    "Технические prerequisites и применимые protected/live approvals записаны.",
     "Меняется один layer и только resolved paths.",
     "Prototype parity invariants не изменены.",
     "Scoped + repository + layer-specific gates зелёные.",
-    "Evidence содержит provenance, commands/counts и runtime result.",
-    "Applicable human-owned spec gate и exact contract revision подтверждены."
+    "Evidence содержит provenance, commands/counts и runtime result."
   ],
   "approvals": [],
   "notes": "<phase, prerequisite ids и bounded context>"
 }
 ```
+
+Только для задачи, зависящей от внешней границы, добавить критерий о matching-
+секции `data-boundaries.md` не ниже `MAPPED` и точной версии контракта. Для
+несвязанных config/deploy/observability/runbook задач этот критерий не добавлять.
 
 Route выбирать по владельцу. Для многорежимного route записывать mode именно в
 общем поле `skill_mode`, не в `mode`, `eval_mode` или тексте `notes`:
@@ -165,8 +173,8 @@ Route выбирать по владельцу. Для многорежимно�
 - dependencies → `harness-production-readiness`, `skill_mode: dependency`;
 - effective config → `harness-production-readiness`, `skill_mode: config`;
 - contract acquisition/design proposal → `harness-production-readiness`,
-  `skill_mode: contract`; human approval remains a checkpoint;
-- approved boundary adapter → `harness-production-readiness`,
+  `skill_mode: contract`; новая boundary остаётся architecture checkpoint;
+- contract-ready boundary adapter → `harness-production-readiness`,
   `skill_mode: adapter`;
 - process topology/wiring → `harness-production-readiness`,
   `skill_mode: process`;
@@ -203,7 +211,7 @@ ID — следующий свободный numeric во всех queue section
 - applicability matrix;
 - задачи по волнам и зависимости;
 - skipped/already-satisfied slices;
-- blockers и approvals;
+- blockers и применимые protected/live approvals;
 - exact files и source provenance.
 
 После подтверждения добавить новые `open` tasks по planning-write contract
@@ -224,11 +232,13 @@ scope текущей задачи. Обновить matrix и создать о�
 
 - Не копировать asset как готовую очередь и не создавать все families всегда.
 - Не зашивать stack, framework, provider, endpoint, service naming или layout.
-- Не создавать implementation task до approved boundary/topology/owner.
-- Не считать `stage-b-plan=APPROVED` разрешением на adapter или live:
-  соответственно нужны отдельные gates `adapter` и `live`.
-- Не менять human-owned gate status от имени approver; acquisition task может
-  подготовить evidence/proposal и завершается только после внешнего sign-off.
+- Не создавать implementation task до contract readiness: exact operation,
+  versioned source, auth, mapping и отсутствие material conflicts.
+- Подтверждение плана не разрешает live-вызов: для него нужно отдельное текущее
+  authorization. Existing adapter не требует повторного ручного согласования,
+  если официальный контракт и mapping технически готовы.
+- Для новой boundary acquisition/design task может подготовить факты и
+  предложение, но не принимать отсутствующее архитектурное решение.
 - Не смешивать config, dependency, process, bundle, DB, integration и business
   fixes в одной задаче.
 - Не считать `make verify` достаточным для build/process/integration/stand layer.

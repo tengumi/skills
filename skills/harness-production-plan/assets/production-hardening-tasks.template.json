@@ -7,7 +7,7 @@
       "Не использовать фиксированный диапазон id; выбирать следующий свободный numeric id.",
       "Для каждой dimension сначала установить required, already_satisfied, not_applicable или blocked.",
       "Разворачивать per_boundary и per_process отдельно.",
-      "Все paths, source sections и approvals разрешить до persistence task.",
+      "Для implementation task все paths, source sections и approvals разрешить до persistence; decision/acquisition task может фиксировать exact blocker и owner gap.",
       "Для многорежимного use_skill записывать exact mode только в общем поле skill_mode."
     ],
     "status_contract": {
@@ -123,15 +123,14 @@
       "applies_if": "A file/parity boundary must be replaced, or an existing external integration needs exact production proof.",
       "prerequisites": [
         "Boundary classification is known.",
-        "Owner and source of truth are named.",
-        "pre-industrialization-spec stage_b_plan gate is approved."
+        "The boundary is observed in the prototype or listed in the integration passport, and the exact missing contract facts are named."
       ],
-      "title_template": "Подготовить production contract для human approval",
+      "title_template": "Подготовить production contract для boundary",
       "acceptance_template": [
-        "Exact pre-industrialization-spec boundary card is filled from a versioned authoritative contract and sanitized sample, or a greenfield proposal is prepared for the named owner.",
+        "The exact data-boundaries technical section is filled from a versioned authoritative contract and sanitized sample, or a greenfield proposal is prepared as a separate design input.",
         "Method/path or exact tool/topic, headers, request, response, errors, schema/versioning, auth, ordering, idempotency, retries, timeout and SLO are explicit.",
         "Observed File IO semantics remain prototype evidence and are not misrepresented as a pre-existing endpoint.",
-        "The agent does not set APPROVED; human approver/date/evidence and contract revision are present before this prerequisite is considered complete."
+        "The technical state is DOCUMENTED/MAPPED when facts are complete, or BLOCKED with an exact missing input; no manual status word is required."
       ]
     },
     {
@@ -195,13 +194,13 @@
       "cardinality": "per_boundary",
       "use_skill": "harness-production-readiness",
       "skill_mode": "adapter",
-      "applies_if": "An approved boundary contract exists and current production adapter/mapping is absent or incorrect.",
+      "applies_if": "A contract-ready boundary exists and current production adapter/mapping is absent or incorrect.",
       "prerequisites": [
-        "boundary-contract is approved.",
-        "pre-industrialization-spec adapter gate is approved.",
+        "The matching data-boundaries section is at least MAPPED with exact operation, auth and no material conflict.",
+        "The authoritative contract revision is complete and traceable to the integration passport or official source.",
         "Live authorization is separate from execution transport."
       ],
-      "title_template": "Реализовать и проверить adapter для approved boundary",
+      "title_template": "Реализовать и проверить adapter для contract-ready boundary",
       "acceptance_template": [
         "Generated client has spec/version, reproducible generation and regeneration policy when applicable.",
         "Exact method/path or tool/topic, request/response/error bodies, auth/headers, aliases, encoding, absent/null/empty/date/enum mapping and prerequisites are tested.",
@@ -475,7 +474,8 @@
       "acceptance_template": [
         "Clean install, import, verify, build, source/artifact/image processes, DB-safe startup and boundary mapping matrix is complete.",
         "Sanitized stand smoke proves expected node/boundary/terminal/publish path.",
-        "Each failing layer becomes a separate corrective task; this task does not mix fixes."
+        "Each failing layer becomes a separate corrective task; this task does not mix fixes.",
+        "After green evidence, the owner release decision (approve or defer), approver, date, scope and report link are recorded in task evidence; Codex does not make this decision."
       ]
     },
     {

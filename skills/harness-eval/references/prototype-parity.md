@@ -12,7 +12,12 @@ boundary change; смысл входа, результата, ошибок, term
 - Назвать prototype root/commit и target revision.
 - Иметь `prototype-contract.json` либо эквивалентный зафиксированный контракт.
 - Зафиксировать prompt, schema и runtime-config hashes без secret values.
-- Выбрать sanitized fixtures или approved data source и явный threshold.
+- Собрать sanitized input manifest из существующих тестов, примеров и
+  `prototype-contract.json`; если безопасных примеров нет, создать минимальные
+  synthetic fixtures, сохраняющие схемы и важные края.
+- Зафиксировать правило сравнения в отчёте: deterministic fields — exact;
+  schemas, errors и terminal states — обязательное совпадение; для LLM —
+  несколько повторов, required fields и variance обеих сторон.
 - Если прогоны вызывают реальные внешние systems, получить live authorization;
   само имя этого режима его не даёт.
 

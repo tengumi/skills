@@ -8,23 +8,21 @@ API, MCP tool, очередь либо другой внешний runtime и д
 
 ## Preconditions
 
-- Прочитать human-owned `docs/harness/pre-industrialization-spec.md` и вручную
-  убедиться, что `live_validation=APPROVED/VERIFIED`, human sign-off содержит
-  approver/date/evidence, а environment/data/call/side-effect scope точно
-  покрывает этот прогон.
-- Получить explicit live flag или approval на secure stage, data scope и side
-  effects. Watcher/direct transport не заменяет это разрешение.
-- Назвать approved source/provider, boundary classification, owner, exact
-  route/tool/topic/schema и external prerequisites, если они применимы.
+- Прочитать `docs/harness/pre-industrialization-spec.md` и matching-секцию
+  `data-boundaries.md`: exact environment, route/tool/topic/schema, auth
+  mechanism и external prerequisites должны быть известны.
+- Получить отдельный текущий live flag/approval в policy, task или evidence на
+  exact environment, data scope, call limit и side effects. Watcher/direct
+  transport и заполненный паспорт подключений его не заменяют.
+- Назвать source/provider и boundary classification, если они применимы.
 - Выбрать sanitized/near-real inputs и правила хранения reports.
 - Подтвердить process topology и безопасный DB/migration mode до startup.
 
 Не угадывать placeholder path. Сначала найти documented data; если их нет,
 записать assumption/blocker в report.
 
-Если frontmatter одобрен, но карточка boundary или authorization section не
-покрывает фактический вызов, gate считать закрытым и остановиться. Агент не
-расширяет approval и не меняет его статус от имени владельца.
+Если authorization или matching-секция `data-boundaries.md` не покрывает
+фактический вызов, остановиться. Codex не расширяет scope самостоятельно.
 
 ## Workflow
 
@@ -51,7 +49,7 @@ API, MCP tool, очередь либо другой внешний runtime и д
 ## Gating и предел доказательства
 
 Live eval никогда не входит в default unit CI. Failure внешнего prerequisite не
-маскировать как code defect или success: зафиксировать состояние и owner.
+маскировать как code defect или success: зафиксировать состояние и blocker.
 Mock/static test не заменяет фактическое process registration, artifact/image
 startup или boundary proof.
 
@@ -63,7 +61,7 @@ isolated/confirmed-owned target либо доказанный read-only/migratio
 
 Включить:
 
-- approval/live flag и secure-stage identity;
+- authorization reference/live flag и secure-stage identity;
 - exact execution mode и redacted effective config;
 - source/provider/boundary, route/tool/topic, status и prerequisite state;
 - process-chain evidence до terminal/publish outcome;

@@ -45,26 +45,28 @@ include_all=true)` только для диагностики. `blocked`, `in_pr
 **2.5. Проверь route, mode и human gate ДО claim.**
 Используй полную task definition, уже возвращённую `list_open_tasks`; не жди
 ответа `claim_task`, чтобы впервые увидеть route. Примени allowlist из шага 3.5.
-Для перечисленных production/parity/live routes до claim вручную прочитай
-human-owned `docs/harness/pre-industrialization-spec.md` и выполни описанную там
-проверку gate:
+Для Stage-B routes до claim прочитай
+`docs/harness/pre-industrialization-spec.md` и matching-секцию
+`docs/harness/data-boundaries.md`, если она уже существует. Для parity/live
+примени отдельные prerequisites ниже:
 
-| Route/mode | Обязательный pre-claim gate |
+| Route/mode | Что должно быть подтверждено до claim |
 |---|---|
-| `harness-eval:prototype-parity` | `parity_inputs=APPROVED/VERIFIED`, раздел 3 и exact fixture/data scope |
-| `harness-production-readiness:contract` | `stage_b_plan=APPROVED/VERIFIED`, boundary owner/mechanism |
-| `harness-production-readiness:adapter` | `adapter_implementation=APPROVED/VERIFIED`, exact approved boundary card/revision |
-| остальные Stage-B readiness modes | `stage_b_plan=APPROVED/VERIFIED` и применимый approval для protected scope |
-| `harness-eval:live` | `live_validation=APPROVED/VERIFIED`, exact environment/data/call/side-effect scope |
-| `harness-production-readiness:stand` с external call/side effect | дополнительно тот же live status и scope |
-| `harness-golden` | released input/truth sources, oracle probe и data policy из `golden-spec.yaml`; pre-industrialization gate не заменяет их |
-| `harness-eval:golden` | released dataset/audit/hash и evaluation data policy; при external call дополнительно applicable live approval |
+| `harness-eval:prototype-parity` | актуальные prototype/target revisions, `prototype-contract.json` и возможность собрать sanitized/synthetic input manifest; live authority нужна только при внешнем вызове |
+| `harness-production-readiness:contract` | найденная boundary зарегистрирована; задача ограничена получением contract facts или подготовкой design proposal |
+| `harness-production-readiness:adapter` | matching-секция `data-boundaries.md` не ниже `MAPPED`: exact operation/revision/auth/mapping известны, material conflicts отсутствуют |
+| остальные Stage-B readiness modes | подтверждённый план задачи и применимое разрешение для protected scope |
+| `harness-eval:live` | отдельное текущее approval/policy/task evidence с exact environment/data/call/side-effect scope |
+| `harness-production-readiness:stand` с external call/side effect | дополнительно то же текущее live authorization |
+| `harness-golden` | released input/truth sources, oracle probe и data policy из `golden-spec.yaml` |
+| `harness-eval:golden` | released dataset/audit/hash и evaluation data policy; при external call дополнительно текущее live authorization |
 
-Закрытый/непроверяемый gate, missing exact boundary card, unresolved marker или
-несовпадение approval scope с задачей → STOP до claim и decision/acquisition
-handoff. Agent не меняет `APPROVED` сам. Ручная проверка должна подтвердить
-status, approver/date/evidence и заполненность применимых sections; specialist
-затем смыслово сверяет authoritative contract/revision.
+Для `contract` незаполненная техническая секция — ожидаемый вход, а не blocker:
+до claim нужны зарегистрированная граница и ограниченный scope. Для остальных
+перечисленных routes отсутствующий обязательный contract fact, незаполненная
+matching-секция или несовпадение разрешённого scope с задачей → STOP до claim и
+contract/design/authorization handoff. Specialist затем смыслово сверяет
+официальный contract/revision и mapping.
 
 **3. Claim задачу.**
 Вызови `tasks-mcp.claim_task(repo_path, task_id)` только при подтверждённом
@@ -183,6 +185,12 @@ tasks-mcp.submit_task(repo_path, task_id, evidence={
 Если профильный skill создал canonical report/manifest, добавить его
 repo-relative path в необязательный `evidence.artifacts`; для `harness-golden`
 и `harness-eval` это обязательно.
+
+Если acceptance задачи требует итогового решения о выпуске, submit допустим
+только после зелёного release/stand report и ответа владельца. Решение
+`APPROVE`/`DEFER`, имя или роль, дата, scope и путь к report записываются в
+`evidence.notes` и `evidence.artifacts`; отдельное непредусмотренное поле MCP не
+добавлять. Codex не выбирает решение сам.
 
 Если MCP вернул `reject` — посмотри какие именно поля не прошли валидацию,
 исправь и повтори. Если `ok` — задача логически переедет в `completed_sprint` в

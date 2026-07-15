@@ -24,7 +24,9 @@ description: "Проектирует постоянные repo/CI governance gat
 - raw domain-result JSON/JSONL, notebook outputs с confidential data
 - JWT/API tokens/passwords/private keys in diff
 
-Разрешать только sanitized fixtures, если это явно documented в `docs/harness/golden-validation.md` или аналогичном документе.
+Разрешать только sanitized fixtures, если источник и способ sanitization явно
+записаны в `docs/harness/golden-validation.md`,
+`docs/harness/evals/prototype-parity.md` или аналогичном evidence.
 
 ### Dependency governance
 
@@ -116,7 +118,8 @@ Gate должен падать, если contract изменился без `int
 - Не менять dependency versions или lock files без current user approval либо
   recorded task approval с exact path/scope, owner и provenance.
 - Не ослаблять existing CI/pre-commit checks.
-- Не считать sanitized fixture безопасной без явного документа с правилами sanitization.
+- Не считать sanitized fixture безопасной без явного evidence с источником и
+  правилами sanitization.
 
 ## Evidence
 

@@ -21,9 +21,11 @@ specialist skill и останавливается на ближайшем че�
 - `prototype` — read-only источник логики;
 - `target` — целевой repository, развёрнутый из team template;
 - `team_template` или явное подтверждение, что target уже создан из него.
-- human-owned `target/docs/harness/pre-industrialization-spec.md`, созданный из
-  kit template. Агент может заполнить наблюдаемые facts и подготовить proposal,
-  но `APPROVED`/`VERIFIED` ставит только названный человек-владелец.
+- `target/docs/harness/pre-industrialization-spec.md`, созданный из kit
+  template. Это короткий паспорт недостающих production-подключений: точные
+  операции и versioned contracts, адреса/config keys, auth/secret references
+  без значений, БД/хранилища и Jenkins/deploy-реквизиты. Наблюдаемые факты и
+  детали доступных контрактов Codex извлекает сам.
 
 Если в target нет нормативных docs, дополнительно нужен точный `team_docs`
 source. Его передать `harness-context` как `team_docs_source`; существующие
@@ -43,34 +45,33 @@ target files не перезаписывать.
 | Состояние | Доказательство | Следующее действие |
 |---|---|---|
 | Context target неполон | нет repo `AGENTS.md` или обязательных team docs | `harness-context`, `bootstrap-minimal`, с exact `team_docs_source` при необходимости; review и preflight handoff |
-| Intake spec отсутствует | нет `pre-industrialization-spec.md` | скопировать kit template без перезаписи target; human checkpoint |
-| Stage-A intake не утверждён | `stage_a_intake` не `APPROVED/VERIFIED` или разделы intake неполны | показать только недостающие human facts/owners; не начинать анализ или port |
+| Паспорт подключений отсутствует | нет `pre-industrialization-spec.md` | скопировать шаблон kit без перезаписи target; Stage A не блокировать, недостающие production-реквизиты запросить перед зависимым шагом B |
+| Эталон не определён | prototype argument и git evidence не дают точную версию источника | запросить точный path/repository + commit/tag; не анализировать неоднозначный источник |
 | Target не готов | нет clean baseline/doctor GO | `harness-doctor` после template review/initial commit |
 | Prototype не описан | нет `prototype-analysis.md` | `harness-source-analysis` |
 | Precheck не решён | нет `ds-precheck.md` или human decisions | `harness-ds-precheck`, затем checkpoint |
 | План A отсутствует | нет подтверждённой port queue | `harness-context` bootstrap-minimal, затем `harness-prototype-plan` |
 | Port не завершён | есть open plan-A task | одна task через `harness-work-session` |
-| Parity inputs не утверждены | `parity_inputs` не `APPROVED/VERIFIED` или scope fixtures/invariants не подтверждён | human data/parity checkpoint; не запускать parity eval |
 | Parity не доказан | нет green `docs/harness/evals/prototype-parity.md` для текущих hashes | `harness-eval`, `skill_mode=prototype-parity` |
-| Stage-B boundary plan не утверждён | `stage_b_plan` не `APPROVED/VERIFIED` либо boundary owner/mechanism остаются unresolved | human architecture checkpoint; заполнить spec и индекс `data-boundaries.md` |
 | Production baseline отсутствует | нет `team-patterns-production.md` | `harness-extract-prod` |
-| План B отсутствует/устарел | нет актуальной applicability matrix | `harness-production-plan` |
-| Adapter task следующая, contract gate закрыт | `adapter_implementation` не `APPROVED/VERIFIED` или exact boundary card не покрывает task | только contract-acquisition/decision; implementation не claim-ить |
-| Hardening не завершён | есть dependency-ready open plan-B task, разрешённая соответствующим spec gate | одна task через `harness-work-session` |
-| Live task следующая, live gate закрыт | `live_validation` не `APPROVED/VERIFIED` или environment/data/action scope не покрывает вызов | human live-authorization checkpoint; не выполнять внешний вызов |
-| Release не доказан | `release` не `APPROVED/VERIFIED` либо clean release/stand evidence не зелёные | human release inputs либо plan-generated release/stand task; при live — `harness-eval` mode live |
+| План B отсутствует/устарел | нет applicability matrix либо зафиксированные в ней версии паспорта подключений/технической карты уже изменились | `harness-production-plan` |
+| Следующая задача реализует внешнее подключение, но данные неполны | в `data-boundaries.md` нет точной операции/revision/auth/mapping либо есть material conflict | только contract-acquisition/design; implementation не claim-ить |
+| Hardening не завершён | есть dependency-ready open plan-B task с доказанными prerequisites | одна task через `harness-work-session` |
+| Следующая задача вызывает стенд, но разрешения нет | нет отдельного текущего approval/policy/task evidence на exact environment/call/data/side effects | запросить разрешение непосредственно перед вызовом; остальные задачи не блокировать |
+| Выпуск не доказан | нет clean release/stand evidence или итогового решения владельца в release task/evidence | выполнить plan-generated release/stand task; при live — `harness-eval` mode live; затем запросить итоговое решение |
 
 Если evidence конфликтует, остановиться с таблицей конфликтов; не выбирать более
 удобный статус.
 
 ## Оркестрация
 
-1. Объявить найденную фазу, доказательство и ближайший checkpoint.
-   Перед `source-analysis`, parity, plan B, adapter implementation, live и
-   release вручную прочитать соответствующий status, применимые разделы и human
-   sign-off в spec. Убедиться, что в обязательных полях нет unresolved markers и
-   scope approval точно покрывает действие; затем смыслово сверить contract с
-   authoritative evidence. При несоответствии остановиться на human checkpoint.
+1. Объявить найденную фазу, доказательство и ближайший checkpoint. Перед
+   `source-analysis` проверить точную версию эталона; parity manifest и правило
+   сравнения строит `harness-eval` из prototype contract, тестов и безопасных
+   примеров. Перед adapter проверить паспорт и техническую карту
+   `data-boundaries.md`; перед live-вызовом — отдельное текущее разрешение.
+   Итог выпуска проверять в release task/evidence. Не требовать от человека
+   повторно описывать факты, доступные в коде или документах.
 2. Вызвать ровно один specialist workflow за раз. После каждого результата
    заново проверить durable state и автоматически выбрать следующий шаг, пока
    не достигнут human checkpoint, blocker или запрошенный конечный этап. При
@@ -95,27 +96,28 @@ target files не перезаписывать.
 Всегда остановиться до кода или следующей фазы, если нужно:
 
 - принять class-П/behavior deviation или разрешить конфликт прототипа;
-- утвердить data boundary, owner, schema/versioning, auth или topology;
+- спроектировать новую data boundary либо разрешить конфликт schema/versioning,
+  auth или topology;
 - разрешить dependency/protected CI, Docker, migration или generated-file scope;
 - выбрать между конфликтующими team sources;
-- санкционировать live external call, shared DB или опасный side effect;
+- санкционировать конкретный live-вызов, изменение общей БД, deploy или другой
+  опасный side effect;
 - подтвердить applicability matrix перед записью задач B.
-- сменить любой gate входной спеки на `APPROVED`/`VERIFIED`.
 
 Показ плана до записи, предусмотренный specialist skill, остаётся обязательным.
 
-Для data-boundary checkpoint человек утверждает точную карточку в human-owned
-`docs/harness/pre-industrialization-spec.md`. Repo-owned
-`docs/harness/data-boundaries.md` хранит короткий индекс: data flow, prototype
-evidence, target mechanism, owner, status и ссылку на карточку/spec revision.
-`OPEN` не заменять догадкой. Это planning artifacts, а не unrouted task этапа A.
+Для внешней системы `docs/harness/pre-industrialization-spec.md` даёт нужную
+операцию, официальный источник/revision, адрес или config key и способ
+авторизации без значения секрета. `docs/harness/data-boundaries.md` Codex
+заполняет схемами, ошибками, mapping и проверками. `НЕИЗВЕСТНО` не заменять
+догадкой; оно блокирует только зависящее подключение.
 
 ## Completion
 
 Прогон завершён только когда:
 
 - prototype contract и parity зелёные либо deviations явно одобрены;
-- каждый production boundary имеет owner, approved contract и проверенный mapping;
+- каждый production boundary имеет exact versioned contract и проверенный mapping;
 - временный File IO отсутствует в production path либо осознанно сохранён;
 - clean install, verify, build и все применимые source/artifact processes зелёные;
 - authorized stand smoke подтверждает terminal states и side effects;
@@ -131,11 +133,12 @@ Quality golden по внешнему стандарту не является о
 - Не заменять specialist skills пересказом их правил.
 - Не создавать код или tasks напрямую, если это обязанность planner/executor.
 - Не переходить из A в B без parity evidence.
-- Не редактировать human sign-off от имени владельца и не считать наличие файла
-  разрешением: проверять нужный gate перед соответствующим действием.
-- Не claim-ить adapter/live/release task при закрытом gate, даже если tasks-mcp
-  показывает задачу как `open`: queue пока не обеспечивает эти prerequisites
-  машинно.
+- Не придумывать отсутствующие реквизиты подключения и не считать наличие
+  файла разрешением на live-вызов или side effect.
+- Не claim-ить adapter task без contract readiness, а live task — без отдельного
+  текущего authorization, даже если tasks-mcp показывает задачу как `open`.
+- Не объявлять выпуск завершённым без итогового решения владельца в release
+  task/evidence.
 - Не считать один `make verify` доказательством deploy/stand readiness.
 - Не скрывать blockers ради автоматического продолжения.
 - Не использовать optional workspace/greenfield utilities без фактической нужды.

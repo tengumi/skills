@@ -26,9 +26,12 @@ description: "Исполняет один bounded Stage-B slice без изме�
 6. `docs/harness/environment-doctor.md` — должен быть `GO`
 7. current/target data-boundary classification, integration/interface inventory
    и текущую задачу в `docs/harness/tasks.json`
-8. human-owned `docs/harness/pre-industrialization-spec.md`, exact section/revision
-   текущего boundary/process и соответствующий gate status. Агент не меняет
-   `APPROVED`/`VERIFIED` от имени owner
+8. `docs/harness/pre-industrialization-spec.md` с записью текущего подключения и
+   `docs/harness/data-boundaries.md`, если он уже есть. В режиме `contract`
+   отсутствующая техническая карта создаётся из канонического kit/team template,
+   а секция может быть неполной — задача заполняет её. В режиме `adapter` карта
+   обязана быть не ниже `MAPPED`: exact operation/revision/auth/mapping известны
+   и material conflicts отсутствуют
 9. `docs/harness/production-applicability.md` и phase/prerequisite evidence
    текущей задачи. Для isolated incident без полного Stage-B plan сначала
    выполнить delta-run `harness-production-plan`.
@@ -148,29 +151,31 @@ source/provider и, если external boundary применима, route/tool, h
 request/response и prerequisites. Worker middleware success-log не доказывает
 business success, если exception проглочен или publish не произошёл.
 
-Любой внешний live-вызов или side effect требует
-`live_validation=APPROVED/VERIFIED` и совпадения environment/data/action scope с
-секцией authorization. Локальный/mock/static smoke этого gate не требует, но не
-может называться live proof.
+Любой внешний live-вызов или side effect требует отдельного текущего
+authorization в policy, task или evidence с exact environment/data/action
+scope. Паспорт подключений и технический доступ такого разрешения не дают.
+Локальный/mock/static smoke authorization не требует, но не может называться
+live proof.
 
 ### 9. Contract acquisition and design
 
 Этот mode не реализует adapter. Для существующей интеграции он находит
 authoritative versioned spec/catalog и sanitized sample; для новой — готовит
-proposal с механизмом, ownership, request/response/error/auth, reliability и
-mapping. Результат вносится как proposal/evidence в точную boundary card
-`pre-industrialization-spec.md` и передаётся named owner.
+proposal с механизмом, request/response/error/auth, reliability и mapping.
+Технические факты и gaps вносятся в точную секцию `data-boundaries.md`.
 
-Агент не ставит `APPROVED`/`VERIFIED`. До человеческой подписи задача остаётся
-decision/acquisition checkpoint, а зависимый `adapter` не claim-ится.
+Если существующий официальный контракт полон, секция получает состояние
+`DOCUMENTED`/`MAPPED` по evidence без дополнительного слова согласования. Если
+проектируется новая boundary или источники конфликтуют, задача остаётся
+design/acquisition checkpoint, а зависимый `adapter` не claim-ится.
 
 ### 10. External adapters and generated clients
 
-До кода проверить `adapter_implementation=APPROVED/VERIFIED` и exact карточку
-boundary в `pre-industrialization-spec.md`. В ней должны быть authoritative
-source/revision, endpoint/tool/topic, request/response/error/auth, mapping,
-owner и approver. Сам факт существования open task или записи в
-`data-boundaries.md` разрешением не является.
+До кода проверить matching-секцию `data-boundaries.md`: состояние не ниже
+`MAPPED`, известны официальный source/revision, endpoint/tool/topic,
+request/response/error/auth, mapping и проверки, material conflicts отсутствуют.
+Сам факт существования open task или строки в паспорте contract readiness не
+доказывает.
 
 Сначала определить один из двух путей:
 
@@ -178,9 +183,9 @@ owner и approver. Сам факт существования open task или �
   catalogue и sanitized real sample; проверить method/path, headers, aliases,
   encoding, absent/null/empty/malformed/valid и prerequisites.
 - **Greenfield boundary:** до adapter создать отдельную architecture/design
-  задачу и утвердить owner, mechanism, sync/async semantics, schema/versioning,
+  задачу, определить mechanism, sync/async semantics, schema/versioning,
   security, idempotency, errors/retries/timeouts и SLO. Затем зафиксировать
-  target contract и spec-first fixtures.
+  versioned target contract и spec-first fixtures.
 
 `NO_EXTERNAL_BOUNDARY` в прототипе — не `UNKNOWN` существующего endpoint.
 Нельзя требовать real payload до появления новой интеграции или выводить route
@@ -222,14 +227,19 @@ source migration или stale/foreign DB — эти причины требую�
 должна чинить сразу несколько. Для каждого incident сначала read-only facts,
 затем classification и минимальная правка соответствующего слоя.
 
+Если это финальная clean-release/stand task, после зелёных проверок подготовить
+короткий пакет решения и остановиться до ответа владельца. В canonical report
+записать `APPROVE` или `DEFER`, кто и когда решил, точный scope и ссылку на
+evidence. Не запрашивать это решение заранее и не принимать его за человека.
+
 ## Workflow
 
-0. Проверь human gate и planning gate вручную. Для всех Stage-B tasks нужен
-   `stage_b_plan=APPROVED/VERIFIED`; для `adapter` дополнительно
-   `adapter_implementation=APPROVED/VERIFIED`, заполненная exact boundary card и
-   совпадение approval scope. Для внешнего вызова в `stand` нужен
-   `live_validation=APPROVED/VERIFIED` с точным environment/data/action scope.
-   Закрытый или неполный gate → STOP с недостающими полями/owner, не claim/код.
+0. Проверь, что task создан подтверждённым планом B и имеет все применимые
+   разрешения на protected scope. Для `adapter` дополнительно нужны
+   contract-ready matching-секция `data-boundaries.md` и официальный
+   source/revision. Для внешнего вызова в `stand` нужно отдельное текущее
+   authorization с точным environment/data/action scope. Неполный prerequisite
+   → STOP с одним коротким списком недостающих сведений, не claim/код.
    Для полного этапа B отсутствие applicability matrix и
    plan-generated task — STOP → `harness-production-plan`. Если новый stand log
    открыл другой layer, не расширять текущую task: вернуть evidence для delta
@@ -262,7 +272,7 @@ source migration или stale/foreign DB — эти причины требую�
 - Не реализовывать greenfield adapter до утверждённого target contract; отсутствие
   endpoint в прототипе не является основанием его угадывать.
 - Не считать queue status, transport access, соседний сервис или заполненный
-  proposal human approval. Exact spec gate должен быть зелёным для действия.
+  паспорт доказательством contract readiness либо разрешением на live-action.
 - Не оставлять временный file-backed parity adapter в production path молча.
   Если target architecture действительно сохраняет File IO, отдельно доказать
   storage ownership, durability, permissions, lifecycle, concurrency и cleanup.
@@ -282,7 +292,7 @@ source migration или stale/foreign DB — эти причины требую�
 - какие файлы изменены;
 - какие проверки прошли;
 - матрицу clean install / verify / build / source processes / frozen processes /
-  stand smoke со статусом каждого применимого gate;
+  stand smoke со статусом каждого применимого решения и разрешения;
 - что осталось до full production-ready;
 - какие decisions требуют человека.
 - evidence для обновления production-applicability отдельным planning handoff.

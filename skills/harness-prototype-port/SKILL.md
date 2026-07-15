@@ -174,7 +174,9 @@ prototype parity.
 - **Условные ветки.** Каждый if/else прототипа сохраняется. Не “эту ветку явно никогда не достигнут”.
 - **Side effects.** На parity-этапе сохранить наблюдаемую файловую/сетевую
   семантику. Замена File IO промышленной boundary выполняется отдельной
-  design+implementation задачей после фиксации golden.
+  design+implementation задачей после зелёного prototype-parity, подготовки
+  технической карты и согласования target contract. Quality golden для этого не
+  требуется.
 
 - НЕ менять prototype-contract.json кроме как через явные intentional_deviations.
   Изменившиеся prompt hashes / schema fields / llm params без deviation = баг.

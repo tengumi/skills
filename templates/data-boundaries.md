@@ -1,21 +1,61 @@
-# Data boundaries — index
+# Внешние границы данных — техническая карта
 
-Этот файл — короткий repo-owned индекс решений о production-доступе к данным.
-Точные endpoint/tool/topic, request/response/error/auth schemas и human sign-off
-живут в `docs/harness/pre-industrialization-spec.md`; здесь они не дублируются.
-Наблюдения из prototype и target design не смешиваются.
+Этот файл заполняет Harness. Человек указывает ссылки и нужные операции в
+`docs/harness/pre-industrialization-spec.md`, а Codex извлекает технические
+детали из прототипа и официальных контрактов.
 
-| Boundary id / data flow | Prototype classification, mechanism and evidence | Target mechanism | Owner/source of truth | Exact spec card + revision/hash | Mapping test/report | Status |
-|---|---|---|---|---|---|---|
-| `B-001 / <input/output>` | `<FILE_ONLY/EXISTING_EXTERNAL/NONE + path>` | `<API/tool/queue/DB/storage/FILE/OPEN>` | `<owner>` | `<pre-industrialization-spec.md#... + revision>` | `<test/report/OPEN>` | `<proposed/approved/blocked/verified>` |
+Источники фактов: код прототипа, integration spec, versioned OpenAPI/MCP/
+AsyncAPI/DDL, team template и runtime evidence. Неизвестное не заменяется
+примером из соседнего сервиса.
 
-## Decision log
+Состояния:
 
-| Date | Scope | Decision | Owner/approver | Evidence | Consequence |
+- `OBSERVED` — граница найдена только в прототипе;
+- `DOCUMENTED` — найдена точная операция и версия официального контракта;
+- `MAPPED` — описано соответствие данных прототипа и production-контракта;
+- `VERIFIED` — mapping и contract checks прошли;
+- `BLOCKED` — отсутствует существенный факт или источники противоречат друг другу.
+
+## Краткий список
+
+| ID и поток данных | Что наблюдается в прототипе | Целевая операция | Официальный источник | Состояние | Чего не хватает |
 |---|---|---|---|---|---|
-| `<date>` | `<boundary>` | `<decision>` | `<owner>` | `<path/ticket>` | `<unblocked tasks>` |
+| `B-001 / <вход или выход>` | `<файл / вызов + path:line>` | `<METHOD /path, tool, topic, database.schema>` | `<путь/ссылка + версия>` | `<OBSERVED / DOCUMENTED / MAPPED / VERIFIED / BLOCKED>` | `<точный gap или НЕТ>` |
 
-`N/A` означает, что transport/endpoint действительно отсутствовал в prototype.
-`OPEN` означает, что production-решение ещё не утверждено; это блокирует adapter,
-но не анализ и parity port. Строка `approved` без точной карточки, revision и
-human sign-off не считается утверждённым контрактом.
+## B-001 — `<название операции>`
+
+- Наблюдение в прототипе: `<факт и path:line/cell>`
+- Запись во входной spec: `<раздел или строка>`
+- Официальное описание: `<путь/ссылка + версия или НЕИЗВЕСТНО>`
+- Состояние: `<...>`
+- Blocker: `<конкретно чего не хватает или НЕТ>`
+
+### Что извлечено из официального описания
+
+| Операция | Точный адрес/tool/topic | Входная схема | Выходная схема и ошибки | Авторизация |
+|---|---|---|---|---|
+| `<...>` | `<...>` | `<ссылка/раздел>` | `<ссылка/раздел>` | `<механизм и config/secret reference без значения>` |
+
+### Соответствие данных и важные края
+
+| Данные прототипа | Поле внешней системы | Преобразование | Null/empty/error | Доказательство |
+|---|---|---|---|---|
+| `<...>` | `<...>` | `<без потерь или явно описанное правило>` | `<...>` | `<тест/пример>` |
+
+- Повторные попытки и таймаут: `<из контракта или НЕИЗВЕСТНО>`
+- Идемпотентность и порядок: `<из контракта или НЕИЗВЕСТНО>`
+- Успешное завершение и обязательный callback: `<...>`
+
+### Проверки
+
+| Проверка | Результат и ссылка |
+|---|---|
+| Точная операция и версия контракта | `<...>` |
+| Схема и обязательные поля | `<...>` |
+| Mapping, включая null/empty/error | `<...>` |
+| Contract test | `<...>` |
+| Live-проверка, если отдельно разрешена | `<... или НЕ ВЫПОЛНЯЛАСЬ>` |
+
+Adapter можно реализовать при состоянии не ниже `MAPPED`, если известны точная
+операция, версия контракта, авторизация и отсутствуют существенные конфликты.
+`VERIFIED` ставится только по evidence, а не по ручному статусу в анкете.

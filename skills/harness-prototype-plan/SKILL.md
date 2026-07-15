@@ -202,9 +202,11 @@ description: >
   `harness-ds-precheck` создаёт ds-precheck.md и проходит human checkpoint.
 - Слоты для files_hint берутся из развёрнутого шаблона (репо рядом) + project_structure.md.
 - ПОСЛЕ: `harness-work-session` → роутит на `harness-prototype-port` по `use_skill`.
-- ПОСЛЕ зелёного `harness-eval` с `skill_mode=prototype-parity` и
-  data-boundary checkpoint: `harness-extract-prod`, затем
-  `harness-production-plan`; static Stage-B template не копировать.
+- ПОСЛЕ зелёного `harness-eval` с `skill_mode=prototype-parity`: передать
+  inventory границ и конкретные gaps из паспорта/технической карты в
+  `harness-extract-prod`, затем `harness-production-plan`. Получение контракта и
+  проектирование новой границы относятся к этапу B; static Stage-B template не
+  копировать.
 - У contract-задачи основной `use_skill` остаётся `harness-prototype-port`;
   porter выполняет `harness-governance-gates:prototype-contract` как вложенную
   verification step по `verification_skills`, а не как второй route. Её id

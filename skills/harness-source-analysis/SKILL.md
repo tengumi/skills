@@ -22,12 +22,16 @@ description: "Создаёт проверяемый prototype-analysis.md: фу�
 Если target_repo == source_path (анализируем прямо в целевой) — это допустимо,
 но обычно прототип и целевая репа разные.
 
-Перед анализом прочитай human-owned
-`<target_repo>/docs/harness/pre-industrialization-spec.md`. Он задаёт ожидаемые
-business flows, разрешённые sources и будущие target boundaries, но **не является
-evidence того, что они уже есть в prototype**. Зафиксируй расхождения между
-спекой и исходником отдельными open questions. Не редактируй human sign-off и не
-подменяй наблюдение target-пожеланием.
+Перед анализом прочитай
+`<target_repo>/docs/harness/pre-industrialization-spec.md`, если он есть. Из него
+брать точную версию эталона и предоставленные сведения о будущих interfaces,
+внешних системах, БД и deploy. Назначение агента, business flows, входы, выходы
+и фактические интеграции вывести из прототипа самостоятельно. Target-пожелание
+не является evidence того, что механизм уже существует в prototype.
+
+Входную spec не редактировать. Все найденные границы записать в
+`prototype-analysis.md`; совпадения и gaps относительно будущих подключений
+явно перечислить для последующего заполнения `data-boundaries.md` на этапе B.
 
 ## Шаг 1: понять формат источника
 
@@ -258,9 +262,12 @@ method, route и headers писать `N/A — not present in prototype`, не `
    отсутствующая будущая boundary — `NO_EXTERNAL_BOUNDARY`, не `UNKNOWN`
 7. **Каждый интерфейс имеет implementation/fake/caller inventory**, если такие
    реализации существуют
-8. **Каждая заявленная во входной spec boundary сопоставлена с наблюдением**:
-   `FILE_ONLY`, `EXISTING_EXTERNAL` либо `NONE`; будущий endpoint не записан как
-   существующий prototype contract
+8. **Каждая граница описана и классифицирована** одним из канонических состояний:
+   `FILE_IO_OBSERVED`, `EXTERNAL_CONTRACT_OBSERVED`,
+   `EXTERNAL_CONTRACT_UNKNOWN` или `NO_EXTERNAL_BOUNDARY`, чтобы следующий
+   planning pass мог перенести факт в `data-boundaries.md` и предложить блок
+   решения человеку. Будущий endpoint не записывается как существующий
+   prototype contract
 
 Запусти простую проверку:
 
@@ -319,8 +326,9 @@ grep -c "^### \`" docs/harness/prototype-analysis.md
 - **НЕ предлагать улучшения.** Анализ — нейтральная инвентаризация; улучшения
   идут в harness-ds-precheck/backlog и никогда не смешиваются с port-задачей.
 - **НЕ догадывать пропущенное.** Лучше пометить как open question.
-- **НЕ ставить `APPROVED`/`VERIFIED` во входной spec.** Агент может приложить
-  evidence и предложить текст, но решение принадлежит указанному owner.
+- **НЕ дописывать во входную spec догадки или наблюдаемые факты.** Она хранит
+  предоставленные production-реквизиты; факты анализа принадлежат
+  `prototype-analysis.md` и `data-boundaries.md`.
 
 -----
 

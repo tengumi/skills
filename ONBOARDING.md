@@ -33,13 +33,19 @@ schema, auth и error semantics проектируются и утверждаю
 - read-only prototype;
 - target, развёрнутый из официального team template;
 - вручную скопированный в target `docs/harness/pre-industrialization-spec.md` из
-  [шаблона kit](PRE-INDUSTRIALIZATION-SPEC.md) и заполненный минимум до gate
-  `stage_a_intake`; существующий target-файл не перезаписывать;
+  [шаблона kit](PRE-INDUSTRIALIZATION-SPEC.md); для этапа A достаточно точной
+  версии эталонного прототипа. До зависимого шага B добавьте недостающие ссылки
+  на контракты, операции, БД и deploy-реквизиты. Существующий target-файл не
+  перезаписывать;
+- `templates/data-boundaries.md`, скопированный как
+  `docs/harness/data-boundaries.md`, если team template его не создал. Человек
+  его не заполняет;
 - подключённые Harness skills и `tasks-mcp`;
 - team docs в target `docs/harness/`: обычно их даёт template; если нет,
   после review вручную скопировать только отсутствующие файлы из kit и не
   перезаписывать target;
-- clean baseline target и человек, который может утвердить data/deploy решения;
+- clean baseline target и человек, который может дать недостающие ссылки,
+  идентификаторы или решение по новой интеграции;
 - `harness-watcher` — только если локальный runtime недоступен или его требует
   политика окружения.
 
@@ -47,11 +53,11 @@ schema, auth и error semantics проектируются и утверждаю
 допустим только при отдельном coordination channel: claim/submit не должны
 оставлять `tasks.json` в feature-diff.
 
-Не нужно до старта изобретать endpoint для file-only prototype. В спеках
-prototype-поля endpoint/auth будут `N/A`; отдельно заполняется будущая target
-boundary. До Stage A достаточно утвердить intake и parity inputs. Точные
-request/response/error/auth обязательны до реализации production adapter, а
-доступ к stand и side effects — только до live-проверки.
+Не нужно до старта описывать назначение агента, переписывать его входы, тексты
+запросов к модели, параметры модели или дублировать OpenAPI/Jenkinsfile. Всё
+наблюдаемое Codex извлечёт сам. Человек даёт точную ссылку и нужную операцию, а
+если формального контракта нет — только минимальные сведения, без которых
+подключение невозможно реализовать.
 
 ## Самый простой запуск
 
@@ -66,30 +72,29 @@ request/response/error/auth обязательны до реализации pro
 
 ## Что произойдёт по шагам
 
-### 0. Входная спека и человеческие полномочия
+### 0. Паспорт подключений
 
 До первого запуска вручную скопируйте шаблон в
-`docs/harness/pre-industrialization-spec.md`, если файла ещё нет. Человек
-указывает источники истины, owners, data policy и доступ к prototype. Перед
-каждым следующим этапом он заполняет применимые разделы и утверждает нужный
-status. Агент может собрать факты и предложить формулировки, но не ставит
-`APPROVED`/`VERIFIED` от имени владельца.
+`docs/harness/pre-industrialization-spec.md`, если файла ещё нет. Это не анкета
+согласований, а короткий технический паспорт того, чего нет в прототипе и team
+docs:
 
-| Этап | Обязательный gate |
-|---|---|
-| Начало анализа и переноса | `stage_a_intake` |
-| Prototype parity | `parity_inputs` |
-| План этапа B | `stage_b_plan` |
-| Реализация adapter | `adapter_implementation` |
-| Внешняя live-проверка | `live_validation` |
-| Выпуск | `release` |
+- точная версия эталонного прототипа;
+- интерфейсы нового сервиса и нужные endpoints/tools/topics;
+- вызываемые внешние системы и ссылки на versioned contracts;
+- БД, хранилища и ссылки на DDL/migrations;
+- Jenkins, стенд и deploy-идентификаторы, если они не заданы template;
+- config/credential/secret references без значений секретов.
 
-Перед продолжением вручную убедитесь, что нужный status и все применимые
-prerequisites имеют `APPROVED`/`VERIFIED`, указаны approver/date/evidence, в
-обязательных разделах нет неразрешённых placeholders, `TODO`, `TBD`, `UNKNOWN`
-и запрещённых для этапа `OPEN`, а scope решения точно покрывает действие. Если
-нет — Harness останавливается на human checkpoint. Формальный status не
-заменяет смысловую проверку authoritative contract человеком.
+Если официальное описание полное, достаточно ссылки, версии и нужной операции:
+тела запросов, ошибки и поля Codex извлечёт сам. Неизвестное помечается
+`НЕИЗВЕСТНО` и блокирует только зависящее подключение; анализ и перенос
+внутренней логики продолжаются.
+
+Codex записывает найденные факты и mapping в
+`docs/harness/data-boundaries.md`, не дописывая догадки во входную spec.
+Разрешение на live-вызов, запись в общую БД, миграцию или deploy запрашивается
+отдельно непосредственно перед действием и сохраняется в task/evidence.
 
 ### 1. Preflight target
 
@@ -135,31 +140,34 @@ claim-ятся.
 target на одинаковых логических входах. Одинаковый transport не требуется;
 обязательные поля, ошибки и terminal states должны сохраниться.
 
+Harness сам собирает безопасный input manifest из тестов, примеров и
+`prototype-contract.json`. Детерминированные поля сравниваются точно; для LLM
+отдельно фиксируются обязательные поля, статусы и variance. Применённое правило
+записывается в отчёт. Человек подключается только если сравнение невозможно без
+защищённых данных или реального внешнего вызова.
+
 Канонический отчёт: `docs/harness/evals/prototype-parity.md`. Именно его hashes,
 threshold и статус использует оркестратор при возобновлении прогона.
 
 Зелёный parity доказывает сохранение логики, но ещё не production readiness.
 
-### 5. Решение о production boundary
+### 5. Подготовка production boundary
 
-До замены File IO или другого временного adapter human checkpoint фиксирует
-точный contract в `docs/harness/pre-industrialization-spec.md`, а
-`docs/harness/data-boundaries.md` остаётся коротким индексом решений и ссылок на
-карточки boundary. Нужно определить:
+После анализа Codex сопоставляет найденные потоки с паспортом подключений. Для
+готовой интеграции человеку достаточно указать официальный versioned contract и
+нужную операцию. Codex сам извлекает точные схемы, ошибки, авторизацию и строит
+mapping в `docs/harness/data-boundaries.md`; OpenAPI или тела запросов вручную
+переписывать не нужно.
 
-- owner и source of truth;
-- механизм: API, tool, queue, DB, storage или другой;
-- schema/versioning, auth и mapping;
-- ordering, idempotency, errors, retries и timeouts;
-- способ contract и live проверки.
+Adapter готов к реализации, когда известны точная операция, версия контракта,
+способ авторизации, mapping и отсутствуют существенные противоречия источников.
+Это определяется по технической карте и evidence, а не по ручному статусу в
+анкете.
 
-Если интеграция существует, но contract недоступен, Stage B создаёт только
-contract-acquisition task с owner; adapter блокируется до заполненной карточки
-и `adapter_implementation=APPROVED`. Если интеграции ещё нет, checkpoint сначала
-утверждает mechanism/owner — на `stage_b_plan=APPROVED` они уже не могут быть
-`OPEN`; после этого production plan создаёт contract/design
-и implementation tasks. Port queue этапа A таких задач не содержит. Сам анализ
-и parity уже могут быть завершены.
+Если официального описания нет или проектируется новая boundary, Stage B
+создаёт ограниченную задачу на получение контракта или инженерное решение.
+Блокируется только зависимое подключение; анализ, перенос внутренней логики и
+остальные production-срезы продолжаются.
 
 ### 6. План и выполнение этапа B
 
@@ -190,7 +198,7 @@ states и разрешённые side effects.
 Решение человека обязательно, если:
 
 - предлагается изменить наблюдаемое поведение prototype;
-- не утверждены boundary, owner, schema/auth или process topology;
+- отсутствуют существенные сведения о boundary, schema/auth или process topology;
 - team sources противоречат друг другу;
 - требуется protected CI/Docker/migration/dependency scope;
 - нужен live вызов, shared DB или опасный side effect.
@@ -201,7 +209,7 @@ planning artifact, и оркестратор продолжает со след�
 ## Когда работа закончена
 
 - contract и parity зелёные либо отклонение явно одобрено;
-- human-owned spec имеет соответствующие `APPROVED`/`VERIFIED` gates;
+- необходимые человеческие решения и разрешения подтверждены;
 - каждая production boundary имеет owner, contract и проверенный mapping;
 - временный File IO не остался в production path без явного решения;
 - clean install, verify, build и применимые процессы зелёные;
@@ -218,7 +226,7 @@ prototype parity и не является обязательным gate опро
 | Нужно | Skill |
 |---|---|
 | Вести весь прогон | [harness-productionize](skills/harness-productionize/SKILL.md) |
-| Заполнить входные решения и contracts | [PRE-INDUSTRIALIZATION-SPEC.md](PRE-INDUSTRIALIZATION-SPEC.md) |
+| Заполнить паспорт подключений | [PRE-INDUSTRIALIZATION-SPEC.md](PRE-INDUSTRIALIZATION-SPEC.md) |
 | Проверить окружение | [harness-doctor](skills/harness-doctor/SKILL.md) |
 | Разобрать prototype | [harness-source-analysis](skills/harness-source-analysis/SKILL.md) |
 | Построить планы A/B | [harness-prototype-plan](skills/harness-prototype-plan/SKILL.md), [harness-production-plan](skills/harness-production-plan/SKILL.md) |
