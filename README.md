@@ -12,15 +12,16 @@ production. Здесь лежит всё, что нужно для запуск�
 2. Настроить [`tasks-mcp`](mcp-servers/tasks-mcp/README.md).
 3. Создать target из официального team template и оставить prototype read-only.
    Если template не содержит полного `docs/harness/`, вручную скопировать только
-   отсутствующие team docs, `templates/tasks.json` и
+   отсутствующие team docs, `templates/tasks.json`,
+   `templates/data-boundaries.md` под именем `docs/harness/data-boundaries.md` и
    `PRE-INDUSTRIALIZATION-SPEC.md` под именем
    `docs/harness/pre-industrialization-spec.md`. Существующие target-файлы не
-   перезаписывать.
-4. Заполнить созданный в target
-   `docs/harness/pre-industrialization-spec.md`: кто утверждает решение, какие
-   данные сохраняются и, для каждой production boundary, точные endpoint/tool,
-   request/response/error/auth contracts. Отсутствующие в prototype endpoints
-   отмечаются `N/A`, а будущие не угадываются.
+   перезаписывать; техническую карту заполняет Codex, не человек.
+4. В `docs/harness/pre-industrialization-spec.md` указать эталонную версию
+   прототипа и недостающие сведения о production-подключениях: нужные операции
+   и контракты, адреса стендов/config keys, ссылки на secrets без значений,
+   БД/хранилища и Jenkins/deploy, если они применимы. Назначение агента, его
+   логику и детали доступных контрактов Codex извлекает сам.
 5. Прочитать [ONBOARDING.md](ONBOARDING.md) и запустить один entrypoint:
 
 > Используй `$harness-productionize`: prototype=`<path>`, target=`<path>`,
@@ -34,57 +35,96 @@ production. Здесь лежит всё, что нужно для запуск�
 
 | Путь | Назначение |
 |---|---|
-| [`PRE-INDUSTRIALIZATION-SPEC.md`](PRE-INDUSTRIALIZATION-SPEC.md) | human-owned шаблон входной спеки: endpoints, тела, owners, runtime/deploy и разрешения |
+| [`PRE-INDUSTRIALIZATION-SPEC.md`](PRE-INDUSTRIALIZATION-SPEC.md) | короткий паспорт интерфейсов, внешних систем, БД и deploy-реквизитов |
 | `skills/` | 20 универсальных Harness skills |
 | `templates/` | стартовые repo artifacts и безопасные примеры конфигурации |
 | `team-docs/` | read-only архитектура и соглашения, переданные разработчиком |
 | `mcp-servers/tasks-mcp/` | claim/submit, evidence и stuck detection без feature-diff по умолчанию |
 | `harness-watcher/` | опциональный файловый transport для удалённого выполнения |
 
-Перед каждым этапом человек и Агент вручную сверяют соответствующий статус во
-frontmatter `pre-industrialization-spec.md`, заполненность применимых разделов и
-точный scope human sign-off. Наличие статуса само по себе не доказывает
-смысловую корректность контракта.
+Внешнее подключение можно реализовать после того, как техническая карта содержит
+точную операцию, versioned contract, auth mechanism и проверяемый mapping.
+Разрешение на live-вызов, изменение общей БД или deploy запрашивается отдельно
+непосредственно перед рискованным действием.
 
 Происхождение восстановленных runtime-компонентов и границы достоверности
 описаны в [PROVENANCE.md](PROVENANCE.md).
 
-## Почему skills 20, но выбирать их не нужно
+## Скиллы
 
 Для полного прогона человек вызывает только `harness-productionize`. Он
-определяет состояние по durable artifacts и передаёт следующий шаг точному
-skill. В `tasks.json` оркестратор не записывается: каждая задача получает
-исполнительный `use_skill` и, если нужен, `skill_mode`.
+определяет текущее состояние по артефактам и передаёт следующий шаг нужному
+скиллу. В `tasks.json` записывается точный исполнительный `use_skill` и, если
+нужно, `skill_mode`.
 
-Основной маршрут использует:
+### Управление процессом и контекст
 
-- preflight и контекст: `harness-doctor`, `harness-context`;
-- этап A: `harness-source-analysis`, `harness-ds-precheck`,
-  `harness-prototype-plan`, `harness-prototype-port`;
-- этап B: `harness-extract-prod`, `harness-production-plan`,
-  `harness-production-readiness`;
-- выполнение и доказательства: `harness-work-session`, `harness-eval`,
-  `harness-pre-commit-check`, `harness-governance-gates`.
+- **harness-productionize** — единая точка входа: ведёт весь перенос от
+  подготовки до ближайшего решения человека и умеет продолжать после паузы.
+- **harness-doctor** — до начала работ проверяет checkout, окружение, установку,
+  исходные тесты, tasks-mcp и доступный способ выполнения команд.
+- **harness-scan** — инвентаризирует workspace с несколькими репозиториями и
+  показывает, какие из них готовы к Harness. Для уже выбранного target не нужен.
+- **harness-context** — создаёт или безопасно обновляет `AGENTS.md` и
+  `docs/harness/`, не перезаписывая командные документы и ручные правки.
+- **harness-template** — разворачивает официальный шаблон команды; generic
+  scaffold создаёт только для настоящего greenfield без team template.
+- **harness-extract-patterns** — извлекает повторяющиеся архитектурные и кодовые
+  соглашения из репозиториев, если официальной документации недостаточно.
 
-Опциональный quality-контур разделён намеренно: `harness-golden` создаёт и
-oracle-проверяет новый датасет, а `harness-eval` с `skill_mode=golden` запускает
-по уже released датасету agent under test. Parity и live остаются другими modes
-`harness-eval`; expected outputs во время оценки не переписываются.
+### Этап A — перенос прототипа без потери логики
 
-Legacy tasks мигрируются до claim: `harness-eval + skill_mode=synthesize` →
-`harness-golden` без `skill_mode`. Старый mode не является runtime alias.
+- **harness-source-analysis** — фиксирует фактическое устройство прототипа:
+  функции, входы, схемы, prompts, LLM-параметры, retries, File IO и интеграции.
+- **harness-ds-precheck** — сверяет прототип с правилами DS/MLE-кода и разделяет
+  замечания на форму, изменение поведения и отдельные оптимизации; код не меняет.
+- **harness-prototype-plan** — строит тонкий план этапа A и задачи переноса в
+  `tasks.json`, начиная с машинного контракта исходной логики.
+- **harness-prototype-port** — переносит одну часть прототипа в правильный слот
+  team template, не меняя бизнес-логику, prompts, схемы и параметры моделей.
 
-Оставшиеся skills — situational utilities для workspace scan, team template,
-извлечения недостающих паттернов, layout alignment и watcher transport. Они не
-добавляют обязательные этапы в каждый прогон.
+### Этап B — production-доводка
+
+- **harness-extract-prod** — извлекает подтверждённые production-паттерны из
+  team template, выбранного production-сервиса и release reference.
+- **harness-production-plan** — определяет применимые production-срезы и создаёт
+  только реально нужные задачи этапа B вместо фиксированного списка T-101…T-120.
+- **harness-production-readiness** — выполняет одну задачу этапа B: контракт,
+  adapter, config, process, БД, observability, deploy, runbook или проверку стенда.
+- **harness-team-layout-alignment** — приводит уже работающий сервис к структуре,
+  именованию и форме кода команды без изменения его поведения.
+
+### Выполнение и безопасность
+
+- **harness-work-session** — выполняет одну задачу из `tasks.json` по полному
+  циклу claim → реализация → проверки → commit → submit.
+- **harness-request-exec** — запускает команды через `harness-watcher`, когда
+  безопасный локальный runtime недоступен или этого требует политика окружения.
+- **harness-pre-commit-check** — проверяет конкретный diff перед коммитом:
+  scope, тесты, секреты, runtime-артефакты, защищённые файлы и соглашения команды.
+- **harness-governance-gates** — добавляет постоянные repo/CI-защиты от секретов,
+  запрещённых зависимостей и незадокументированного изменения логики прототипа.
+
+### Golden и проверки
+
+- **harness-golden** — создаёт новый воспроизводимый golden-датасет из
+  референсов и независимого oracle, проверяет неоднозначность и сохраняет provenance.
+- **harness-eval** — запускает проверки по уже определённому эталону в одном из
+  режимов: `prototype-parity`, `golden` или разрешённая `live`-проверка.
+
+`harness-golden` создаёт эталон, а `harness-eval` измеряет по нему качество.
+Golden-контур необязателен для каждого опромышливания и не заменяет проверку
+сохранения поведения прототипа.
 
 ## Источники истины
 
 - `team-docs/` принадлежат команде и не переписываются skills;
 - prototype и `prototype-contract.json` определяют сохраняемое поведение;
-- `pre-industrialization-spec.md` принадлежит людям-владельцам решений; Агент
-  может подготовить evidence, но не ставит себе `APPROVED`;
-- approved target contracts определяют новые API/tool/queue/DB boundaries;
+- `pre-industrialization-spec.md` хранит недостающие production-реквизиты и
+  ссылки на официальные контракты; значения секретов в него не попадают;
+- `data-boundaries.md` — техническая карта, которую Codex строит из прототипа,
+  паспорта подключений и официальных описаний интеграций;
+- versioned target contracts определяют новые API/tool/queue/DB boundaries;
 - `tasks.json` хранит план, а tasks-mcp по умолчанию хранит lifecycle
   out-of-band;
 - production neighbour и release reference дают evidence, но не становятся
