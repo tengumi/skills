@@ -25,8 +25,9 @@ skills, обязательный `skill_mode` из созданных задач
 
 Перед планированием прочитать:
 
-1. task-ready `docs/harness/environment-doctor.md`: clean baseline и безопасный
-   queue storage mode;
+1. текущий git status/base revision, `queue_storage_mode` из tasks-mcp и уже
+   существующее runtime evidence. Отсутствующий install/verify/build evidence не
+   блокирует планирование: добавить применимую bounded task или acceptance gate;
 2. `prototype-analysis.md`, `ds-precheck.md`, `prototype-contract.json` и
    `docs/harness/evals/prototype-parity.md`;
 3. существующие read-only team docs: architecture, configuration, conventions,

@@ -1,135 +1,226 @@
 ---
 name: harness-pre-commit-check
-description: "Проверяет diff перед git commit: task scope, verify evidence, secrets/runtime artifacts, protected files и репозиторные конвенции. Используй напрямую по запросу 'проверь перед коммитом' или автоматически из harness-work-session перед commit; постоянные repo/CI gates создаёт harness-governance-gates."
+description: "Проверяет конкретный diff перед локальным commit: scope, актуальное verify evidence, секреты/runtime artifacts, protected paths и Git-конвенции. Автоматически пропускает зелёный task/preflight commit без отдельного human confirmation, наследует уже выданные approvals и останавливается только на реальном safety/scope blocker. Используй из harness-work-session, harness-productionize или по прямому запросу проверить/закоммитить изменения."
 ---
 
 # harness-pre-commit-check
 
 ## Цель
 
-Перед каждым `git commit` пройти короткий чек-лист, который ловит типовые ошибки: незавершённый код, секреты, нарушения конвенций, изменения в защищённых файлах. Если хотя бы один пункт красный — коммит откладывается до исправления.
+Не запросить разрешение на каждый commit, а доказать, что конкретный diff можно
+безопасно зафиксировать. В активной change/build/productionize работе локальная
+ветка и commit являются обычным обратимым шагом. Отдельный human checkpoint нужен
+только для нового решения или риска, а не для нажатия `git commit`.
 
-Скилл не дублирует CI: CI запустится потом и обнаружит больше. Но дешевле найти проблему здесь, до коммита.
+## Режим
 
-## Когда применять
+Определить режим по вызывающему workflow:
 
-Подгружается из `harness-work-session` шагом перед коммитом. Также может
-вызываться напрямую пользователем: «harness-pre-commit-check», «проверь перед
-коммитом», «можно коммитить?». 
+- `task` — есть claimed task; scope берётся из acceptance, approved plan и
+  recorded approvals;
+- `preflight` — активный `harness-productionize`, context/analysis/plan
+  handoff до первой task; scope — созданные Harness artifacts и явно одобренные
+  preflight changes;
+- `direct-review` — пользователь попросил только проверить; commit не выполнять;
+- `direct-commit` — пользователь прямо попросил закоммитить указанный diff.
 
-В task mode scope/evidence берутся из claimed task. В direct mode scope — только
-явный текущий запрос пользователя и выбранный им diff; если scope неоднозначен,
-остановиться и уточнить, а не считать весь dirty tree разрешённым.
+Не считать весь dirty tree разрешённым. Если нельзя выделить один связный diff,
+остановиться с точным списком неоднозначных paths.
 
-Не запускай если в репе нет изменений — `git status` пустой, чек-листу нечего проверять.
+## Наследование разрешений
 
-## Шаги
+Считать действующим разрешением для текущего scope любое из следующего:
 
-**1. Verify прошёл.**
-Команда verify из AGENTS.md или Makefile должна была пройти зелёным до этого. Если
-verify не запускался или упал — в task mode вернуть управление в
-`harness-work-session`; в direct mode запустить применимый verify безопасным
-разрешённым способом либо запросить его evidence. Пока verify не зелёный,
-коммитить нельзя.
-Если diff затрагивает dependency/lock, entrypoint/build/resources или migrations,
-проверь, что task evidence либо direct-mode проверка содержит соответствующий
-install/import, build/frozen smoke или source/dist migration inventory. `make
-verify` не заменяет эти gates.
+- активный запрос/goal на change, build, fix или productionize;
+- claimed task с acceptance;
+- approved plan/decision packet;
+- `task.approvals` с owner, provenance и подходящим scope;
+- явное разрешение пользователя в текущем запуске.
 
-**2. Изучи diff.**
-Выполни `git diff --cached` если есть staged изменения, иначе `git diff`. Запомни список изменённых файлов и содержимое изменений — все следующие шаги работают по этому diff.
+Разрешение наследуется следующими шагами той же задачи и не запрашивается
+повторно перед branch, commit или submit. Более узкое или более позднее решение
+имеет приоритет. Явные `не коммить`, review-only или ограничение scope всегда
+побеждают.
 
-Сопоставь каждый changed path с acceptance текущей задачи; в direct mode — с
-явно согласованным пользовательским scope. Несвязанные harness
-docs, task journal, Makefile, migrations, generated artifacts, formatter churn и
-«заодно cleanup» — красный scope gate: убрать из коммита или вынести в новую
-задачу. Большой файл может иметь одновременно связанные и несвязанные hunks.
-`docs/harness/tasks.json`, изменённый claim/submit, всегда остаётся MCP-owned
-out-of-band state и не входит task commit; его появление в working diff означает
-неверный queue_storage_mode и блокирует commit.
-`environment-doctor.md` не является исключением: он допустим только в отдельной
-preflight-задаче/commit, но не в diff первой feature/port-задачи.
+Общий change/build goal разрешает обычные локальные in-scope commits, но не
+разрешает сам по себе live/deploy/shared-DB/destructive action и не расширяет
+protected scope за пределы approved task/plan.
 
-**3. Защищённые файлы.**
-Проверь, что в diff не попали файлы, изменение которых требует approval. Список защищённых берётся из секции "Boundaries" в AGENTS.md (`~/.codex/AGENTS.md` корпоративный + репозиторный). Типовые защищённые пути:
-- CI/CD конфиги: `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/`
-- Миграции БД: `**/migrations/**`, `alembic/versions/`
-- Файлы билда: `pyproject.toml`, `package.json`, `pom.xml`, `Dockerfile`
-- Секретные конфиги: `.env`, `secrets/`, любые `*.key`, `*.pem`
+## Проверка
 
-Если защищённый файл изменён — проверь current-session approval либо recorded
-task approval с exact path/scope, owner и provenance. `files_hint`/acceptance
-сами по себе не являются approval. Если записи нет, сообщи пользователю что
-именно изменено и запроси явное подтверждение; без него не коммить.
+### 1. Ветка и идентификатор
 
-**4. Секреты в diff.**
-Просканируй добавленные строки на типовые признаки секретов:
-- Имена переменных оканчивающиеся на `_KEY`, `_TOKEN`, `_SECRET`, `_PASSWORD`, `_PASS` с присвоенным значением (не плейсхолдером)
-- Длинные строки base64 (от 40 символов из набора `[A-Za-z0-9+/=]`)
-- AWS-подобные ключи (`AKIA...`, `ASIA...`)
-- Похожие на JWT (три части через `.` из base64)
-- Приватные ключи (`-----BEGIN PRIVATE KEY-----`)
-- Запрещённые runtime artifacts: `.env`, `.env.*` кроме `.env.example`, `certs*/`, `secrets/`, `logs/`, `results/`, raw domain/RAG/LLM JSON/JSONL dumps
-- PII-like fixture data: реальные email, телефоны, государственные/налоговые
-  идентификаторы в JSON/YAML fixtures, если это не явно sanitized placeholders
-- Реальные значения в YAML/TOML/env для `*_API_KEY`, `*_TOKEN`, `*_SECRET`, `*_PASSWORD`, `*_PASS`; разрешены только placeholders (`empty`, `abc`, `replace-me`, `${...}`, `<...>`, `example.invalid`, `/tmp/...`)
+Проверить `git branch --show-current`.
 
-Если в repo уже есть штатный secret/runtime-artifact guard, запусти его до
-коммита против staged/diff paths или через pre-commit. Его findings являются
-hard blocker; значения секретов не печатай.
+- task branch: `feature/<task.ticket|task.id>[-short-description]`;
+- preflight branch: `feature/T-000[-short-description]` либо exact approved
+  preflight branch.
 
-Найденное — красная зона. Сообщи пользователю строку и файл, не коммить.
+Если ветку надо создать, сформировать short-description самостоятельно из task
+title в lowercase kebab-case. Не спрашивать Jira ID, когда доступен `task.id`, и
+не предлагать `NOJIRA`.
 
-**5. Мусор в коде.**
-Просканируй добавленные строки на следы незавершённой работы:
-- `print(`, `console.log(`, `dump(` не из тестов и не из легитимного логирования
-- `breakpoint()`, `pdb.set_trace()`, `debugger;`
-- Закомментированный код (более 3 закомментированных строк подряд)
-- `TODO`/`FIXME`/`HACK`/`XXX` без привязки к тикету
-- Печать паролей, ID пользователей, корпоративных секретов (если видишь в `print()` имена типа `password`, `secret`, `token` — флаги)
+Не коммитить в protected branch.
 
-При находке — спроси пользователя, нужно ли убирать, или это намеренно.
+### 2. Выбрать diff и проверить scope
 
-**6. Конвенции из conventions.md.**
-Прочитай `docs/harness/conventions.md`. Особое внимание:
-- Naming (если изменены имена файлов/классов/функций — соответствуют ли паттерну)
-- Стиль логирования (используется ли указанная библиотека, а не stdlib `print`)
-- Обработка ошибок (нет ли голых `except:` без типа, нет ли `pass` в except без комментария)
-- Anti-patterns из раздела "Что НЕ делать" в AGENTS.md
+Использовать staged diff, если index непустой; иначе working diff. Сопоставить
+каждый path и существенный hunk с текущим scope.
 
-Если конвенции нарушены — сообщи какие, исправь сам если очевидно, или спроси пользователя если решение спорное.
+Разрешить в `preflight`:
 
-**7. Формат сообщения коммита.**
-Сформулируй commit message по формату из `docs/harness/conventions.md` или секции "Git" AGENTS.md. Если формат не описан — спроси пользователя. Сообщение в повелительном наклонении, описывает что и зачем.
+- `AGENTS.md` и `docs/harness/*.md` analysis/context/planning/audit artifacts;
+- versioned planning changes в `docs/harness/tasks.json`;
+- запись уже принятого owner decision/approval;
+- другие exact paths из approved preflight plan.
 
-Перед коммитом покажи итоговое сообщение пользователю и спроси «коммитить?».
+В `tasks.json` разрешены определения/acceptance/dependencies/approvals, созданные
+planning workflow. Claim/submit lifecycle-поля остаются MCP-owned и не входят в
+feature commit при `out_of_band` mode.
 
-**8. Размер изменений.**
-Если diff больше ~500 строк или затрагивает больше 10 файлов — предупреди пользователя. Большие коммиты сложнее ревьюить и откатывать. Возможно лучше разбить на несколько.
+Не включать unrelated cleanup, formatter churn, raw watcher transport, runtime
+outputs или изменения другой задачи. Очевидный лишний path убрать из index и
+продолжить; спрашивать человека только когда принадлежность scope действительно
+неоднозначна.
 
-Это soft warning, не блокирующий, но стоит проговорить.
+### 3. Проверить protected paths и approvals
 
-**9. Итоговый отчёт.**
-Если все шаги зелёные — сообщи «harness-pre-commit-check пройден, можно коммитить». Если есть красные пункты — список что найдено и что делать.
+Взять protected paths из применимых `AGENTS.md`/team policy. Для CI, migrations,
+build/dependency files, generated artifacts и других защищённых путей найти
+подходящее действующее approval.
 
-## Хард-лимиты
+Approved plan на механический identity rename считается approval для
+перечисленных exact paths и rename mapping. Не запрашивать его повторно перед
+commit. `files_hint` без approved plan/decision approval не заменяет.
 
-- НЕ коммитить если verify не зелёный.
-- НЕ коммитить найденные секреты, даже если пользователь «уверен что это плейсхолдер» — пусть подтвердит явно с цитатой строки.
-- НЕ коммитить в защищённые файлы (CI, миграции, билд) без явного approval.
-- НЕ исправлять конвенции если не уверен — спроси.
-- НЕ скрывать находки — всё что нашёл должно быть в отчёте пользователю.
-- НЕ пропускать task-scope gate даже при зелёном verify: зелёные тесты не делают
-  несвязанный diff допустимым.
+Остановиться только если protected изменение:
+
+- отсутствует в действующем scope;
+- меняет семантику сверх approved plan;
+- добавляет dependency, migration behavior, deploy/live/DB side effect без
+  отдельного разрешения.
+
+### 4. Использовать минимально достаточное evidence
+
+Сначала найти уже зелёное evidence для того же runtime tree, dependency/lock
+inputs и execution path. Не повторять команду из-за новой сессии, commit
+analysis docs или повторного вызова pre-check.
+
+Выбрать проверки по diff:
+
+- docs-only/preflight: `git diff --check`, parse/schema изменённых JSON/YAML и
+  secret/runtime-artifact scan; полный test/build не нужен;
+- source task: scoped tests и canonical verify из AGENTS.md/Makefile;
+- dependency/lock: clean install и документированный import smoke;
+- entrypoint/build/resources: build и применимый process/artifact smoke;
+- migrations: source/dist inventory и разрешённая безопасная проверка без
+  shared-DB mutation;
+- external boundary: sanitized contract/mock check; live только по отдельному
+  разрешению.
+
+`make verify` не заменяет применимый layer-specific gate, но и не дублировать
+lint/format/test, уже входящие в canonical verify.
+
+Если обязательное evidence отсутствует или красное, вернуть управление в
+исполняющий workflow для исправления/проверки. Не превращать это автоматически в
+human checkpoint.
+
+### 5. Секреты и runtime artifacts
+
+Проверить только добавленные строки и changed paths штатным repo guard либо
+точечным поиском:
+
+- private keys, JWT/cloud-key patterns и реальные token/password/secret values;
+- `.env*` кроме разрешённого `.env.example`, cert/private-key material, logs,
+  raw RAG/LLM/domain dumps;
+- несанационные PII fixtures.
+
+При вызове `rg` с pattern, начинающимся на `-`, обязательно ставить `--` перед
+pattern, чтобы scan не завершился ложной ошибкой CLI.
+
+Найденный реальный секрет — hard blocker: не печатать значение, не коммитить и
+не разрешать обход подтверждением. Сообщить только path/line и способ удалить или
+заменить секрет.
+
+### 6. Незавершённый код и конвенции
+
+Проверить добавленные строки на debug prints/breakpoints, закомментированный код,
+непривязанные TODO/FIXME/HACK/XXX, голые/глушащие exceptions и нарушение
+repo/team conventions.
+
+Очевидный in-scope дефект исправить автоматически и повторить затронутую
+проверку. Подтверждённый template marker или task-tracked debt оставить с
+evidence. Спрашивать человека только если исправление меняет поведение либо
+существуют два несовместимых team rules.
+
+### 7. Commit message
+
+Сформировать сообщение самостоятельно по Git-конвенции:
+
+- prefix: `task.ticket`, иначе `task.id`; для preflight — `T-000`;
+- текст: кратко, в повелительном наклонении, по фактическому diff.
+
+Если repo задаёт иной точный формат, использовать его. Спрашивать формат только
+когда его нельзя вывести ни из policy, ни из истории. Не спрашивать
+«коммитить?» в `task`, `preflight` или `direct-commit` после зелёного результата.
+
+### 8. Размер diff
+
+Diff больше 500 строк или 10 файлов считать review warning, не checkpoint.
+Разбить автоматически, если существуют независимые атомарные scopes. Связный
+generated/template/preflight handoff оставить одним commit и отметить размер в
+отчёте.
+
+## Решение
+
+### PASS_AUTO
+
+Выдать, если все обязательные проверки зелёные и действующее разрешение
+покрывает diff:
+
+```text
+status: PASS_AUTO
+commit_authorized: true
+commit_message: <message>
+evidence_reused: <reports or none>
+warnings: <non-blocking list>
+```
+
+В `task`, `preflight` и `direct-commit` немедленно вернуть управление caller со
+словами «продолжить commit без дополнительного подтверждения». Caller выполняет
+commit и дальнейший lifecycle. Не создавать human checkpoint.
+
+В `direct-review` выдать `PASS_REVIEW_ONLY`; commit не выполнять и разрешение не
+подразумевать.
+
+### BLOCKED
+
+Выдать только при hard blocker:
+
+- реальный secret/runtime artifact;
+- out-of-scope diff, который нельзя безопасно отделить;
+- отсутствующее обязательное verify/layer evidence после попытки получить его;
+- protected semantic change без подходящего approval;
+- protected branch или невозможность определить commit scope/message.
+
+Если blocker можно исправить локально в scope, исправить и повторить check без
+человека. Human decision packet нужен только для нового behavior/architecture,
+protected scope, dependency, live/deploy/DB разрешения или конфликта team rules.
+
+## Hard limits
+
+- Не коммитить из protected/non-`feature/` branch.
+- Не коммитить реальные секреты, raw confidential artifacts или несанационные
+  PII.
+- Не коммитить несвязанный diff только потому, что tests зелёные.
+- Не считать `files_hint` самостоятельным protected approval.
+- Не повторять уже действующее approval и не запрашивать разрешение только на
+  локальный commit.
+- Не выполнять commit, если пользователь явно попросил только review или
+  запретил commit.
 
 ## Output
 
-Зелёный исход:
-- Сообщение пользователю что чек-лист пройден
-- Подтверждённый текст commit message
-- Управление возвращается в `harness-work-session` для шага commit
-
-Красный исход:
-- Список найденных проблем с указанием файла и строки
-- Конкретные действия пользователю
-- Управление возвращается в `harness-work-session` БЕЗ перехода к коммиту
+Вернуть `PASS_AUTO`, `PASS_REVIEW_ONLY` или `BLOCKED`, выбранный diff, commit
+message, использованное evidence, warnings и только реальные действия для
+устранения blocker.

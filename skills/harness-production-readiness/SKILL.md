@@ -23,18 +23,21 @@ description: "Исполняет один bounded Stage-B slice без изме�
 3. `docs/harness/prototype-analysis.md`, если репа является ported prototype
 4. `docs/harness/env-vars.md`, если есть
 5. `docs/harness/team-patterns-production.md` и read-only team conventions
-6. `docs/harness/environment-doctor.md` — должен быть `GO`
-7. current/target data-boundary classification, integration/interface inventory
+6. current/target data-boundary classification, integration/interface inventory
    и текущую задачу в `docs/harness/tasks.json`
-8. `docs/harness/pre-industrialization-spec.md` с записью текущего подключения и
+7. `docs/harness/pre-industrialization-spec.md` с записью текущего подключения и
    `docs/harness/data-boundaries.md`, если он уже есть. В режиме `contract`
    отсутствующая техническая карта создаётся из канонического kit/team template,
    а секция может быть неполной — задача заполняет её. В режиме `adapter` карта
    обязана быть не ниже `MAPPED`: exact operation/revision/auth/mapping известны
    и material conflicts отсутствуют
-9. `docs/harness/production-applicability.md` и phase/prerequisite evidence
+8. `docs/harness/production-applicability.md` и phase/prerequisite evidence
    текущей задачи. Для isolated incident без полного Stage-B plan сначала
    выполнить delta-run `harness-production-plan`.
+
+Если нужного install/verify/build evidence ещё нет, получить его внутри текущей
+задачи минимально достаточной командой и сохранить в task evidence; отдельный
+environment-report не создавать.
 
 Для execution/verify используй `harness-request-exec`, если AGENTS.md требует watcher.
 

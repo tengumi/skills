@@ -81,7 +81,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "deploy",
-      "applies_if": "harness-doctor found inconsistent repository, service, package, image, job, queue or schema identity.",
+      "applies_if": "Target/template review found inconsistent repository, service, package, image, job, queue or schema identity.",
       "prerequisites": [
         "Classified token inventory exists.",
         "Domain and external-service tokens are excluded from rename.",

@@ -1,7 +1,7 @@
 # Опромышливание с Harness — первый запуск
 
 Harness помогает перенести прототип AI-агента в production и не потерять его
-поведение по дороге. Для первого прогона не нужно выбирать один из 20 skills:
+поведение по дороге. Для первого прогона не нужно выбирать один из 19 skills:
 начните с `harness-productionize`, а он приведёт к следующему проверяемому
 этапу и остановится там, где требуется решение человека.
 
@@ -41,11 +41,14 @@ schema, auth и error semantics проектируются и утверждаю
   `docs/harness/data-boundaries.md`, если team template его не создал. Человек
   его не заполняет;
 - подключённые Harness skills и `tasks-mcp`;
+- единая Git-политика: любая рабочая ветка, включая bugfix и preflight,
+  создаётся только как `feature/<TICKET>[-short-description]`;
 - team docs в target `docs/harness/`: обычно их даёт template; если нет,
   после review вручную скопировать только отсутствующие файлы из kit и не
   перезаписывать target;
-- clean baseline target и человек, который может дать недостающие ссылки,
-  идентификаторы или решение по новой интеграции;
+- доступный target и человек, который может дать недостающие ссылки,
+  идентификаторы или решение по новой интеграции. Исходный baseline фиксируется
+  перед первой изменяющей задачей;
 - `harness-watcher` — только если локальный runtime недоступен или его требует
   политика окружения.
 
@@ -96,17 +99,18 @@ Codex записывает найденные факты и mapping в
 Разрешение на live-вызов, запись в общую БД, миграцию или deploy запрашивается
 отдельно непосредственно перед действием и сохраняется в task/evidence.
 
-### 1. Preflight target
+### 1. Подготовка target
 
-`harness-doctor` проверит checkout, clean baseline, install/import/verify,
-tasks-mcp и применимый execution path. До результата `GO` port-задачи не
-начинаются.
+Оркестратор убеждается, что prototype и target доступны, а источник структуры
+команды определён. Если в team template нет repo `AGENTS.md`, он вызывает
+`harness-context` в режиме `bootstrap-minimal` и затем сразу переходит к анализу.
 
-Если в team template нет repo `AGENTS.md`, оркестратор сначала вызовет
-`harness-context` в режиме `bootstrap-minimal`. Карту нужно просмотреть и
-оформить отдельным preflight commit, затем запускать doctor.
+Универсального предварительного install/test/build нет. Команда запускается
+один раз в той задаче, которой она действительно нужна, а зелёный результат
+переиспользуется. Остаточные template identity или import gaps становятся
+обычными подготовительными задачами плана A и не блокируют его создание.
 
-Результат: `docs/harness/environment-doctor.md`.
+Результат: минимальный `AGENTS.md`, team docs и доступная очередь задач.
 
 ### 2. Анализ prototype
 
@@ -123,9 +127,10 @@ tasks-mcp и применимый execution path. До результата `GO`
 ### 3. План этапа A
 
 `harness-context` создаст минимальную карту target, а
-`harness-prototype-plan` покажет тонкий план до записи. Первая port-задача
-фиксирует `prototype-contract.json`; следующие переносят по одному слою в слоты
-team template.
+`harness-prototype-plan` покажет план связанных функциональных блоков до записи.
+Первая port-задача фиксирует `prototype-contract.json`; следующие переносят
+capability целиком вместе с её prompts, helpers, state и tests в слоты team
+template. Число файлов само по себе не создаёт новую задачу.
 
 Новый production adapter не прячется внутри обычной port-задачи. Для parity
 можно временно сохранить file-backed или in-memory boundary.
@@ -227,7 +232,6 @@ prototype parity и не является обязательным gate опро
 |---|---|
 | Вести весь прогон | [harness-productionize](skills/harness-productionize/SKILL.md) |
 | Заполнить паспорт подключений | [PRE-INDUSTRIALIZATION-SPEC.md](PRE-INDUSTRIALIZATION-SPEC.md) |
-| Проверить окружение | [harness-doctor](skills/harness-doctor/SKILL.md) |
 | Разобрать prototype | [harness-source-analysis](skills/harness-source-analysis/SKILL.md) |
 | Построить планы A/B | [harness-prototype-plan](skills/harness-prototype-plan/SKILL.md), [harness-production-plan](skills/harness-production-plan/SKILL.md) |
 | Выполнить одну задачу | [harness-work-session](skills/harness-work-session/SKILL.md) |

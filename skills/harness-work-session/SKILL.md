@@ -24,12 +24,9 @@ submit'ить.
 
 **1. Прочитай контекст.**
 Если `AGENTS.md` ещё не в контексте — прочитай его в корне репы. Прочитай `docs/harness/conventions.md` чтобы знать формат коммитов, имена веток, команды verify.
-Проверь `docs/harness/environment-doctor.md`: для первой задачи/нового execution
-path нужен свежий task-ready `GO`. Нет doctor, он красный или его отчёт всё ещё
-лежит незакоммиченным в task diff — сначала завершить отдельный preflight
-handoff, не claim. Doctor report никогда не подмешивается в feature/port commit.
-Doctor также должен подтвердить `queue_storage_mode`: claim/submit не имеют
-права оставлять tracked `tasks.json` в working-tree diff задачи.
+Отдельный environment preflight не требуется. Доступность нужных команд и
+исходный baseline проверяй внутри текущей задачи минимально достаточными
+командами; не создавай для этого отдельный report или commit.
 
 **2. Выбери задачу.**
 Вызови `tasks-mcp.list_open_tasks(repo_path)`. Если задач нет — сообщи
@@ -37,10 +34,31 @@ Doctor также должен подтвердить `queue_storage_mode`: clai
 pre-claim проверке 2.5. Если нет — покажи список и спроси, какую брать. Не
 выбирай сам.
 
+До claim проверь возвращённый `queue_storage_mode`: claim/submit не должны
+оставлять tracked `tasks.json` в feature-diff. Для `out_of_band` продолжай;
+`tracked` допустим только при уже определённом отдельном coordination channel.
+
 Если указанный id отсутствует среди `open`, вызвать `list_open_tasks(...,
 include_all=true)` только для диагностики. `blocked`, `in_progress` или `done`
 задачу не claim-ить повторно, даже если текущая реализация tasks-mcp технически
 это допускает для `blocked`.
+
+Если task содержит `depends_on`, получить merged lifecycle через
+`list_open_tasks(..., include_all=true)` и проверить, что каждый указанный id
+имеет status `done`. Пока хотя бы один prerequisite не завершён, task не
+claim-ить; показать только точный список незавершённых зависимостей. Не выводить
+dependency из порядка массива или свободного текста notes.
+
+Для `harness-eval:prototype-parity` статического `depends_on` недостаточно.
+Task обязана иметь `stage: A` и `plan_id`. По merged lifecycle динамически
+проверь ВСЕ tasks с тем же `plan_id`/stage и не claim-ить parity, пока любая
+другая из них не `done`. Незавершённая `harness-prototype-port` task без
+`plan_id` считается ambiguous Stage-A scope и также блокирует claim до
+исправления definition. Для каждой завершённой task этого plan проверь
+`evidence.commit_sha` и `git merge-base --is-ancestor <commit_sha> HEAD`: parity
+запускается только на target revision, реально содержащей все task commits.
+Если после создания parity добавлена Stage-A delta-task с тем же `plan_id`, она
+автоматически входит в этот gate, даже если отсутствует в старом `depends_on`.
 
 **2.5. Проверь route, mode и human gate ДО claim.**
 Используй полную task definition, уже возвращённую `list_open_tasks`; не жди
@@ -118,7 +136,12 @@ title, notes, файлов или прежнего имени retired skill. Д�
 сохранения логики, а дефолтный `harness-work-session` к этому не обязывает.
 
 **4. Создай ветку.**
-Имя ветки и формат бери из `docs/harness/conventions.md` или из секции "Boundaries" в AGENTS.md. По умолчанию — `agent/{TICKET}`. Никогда не работай в защищённых ветках — что является защищённой, описано в AGENTS.md, обычно `main`, `master`, `develop`, `release/*`.
+Создай ветку только в формате `feature/{TICKET}` либо
+`feature/{TICKET}-{short-description}`. `TICKET` — `task.ticket`, если он задан,
+иначе `task.id`. Префиксы `agent/`, `codex/`, `fix/`, `hotfix/` и любые другие
+запрещены даже для bug/fix-задач. Никогда не работай в защищённых ветках — что
+является защищённой, описано в AGENTS.md, обычно `main`, `master`, `develop`,
+`release/*`.
 
 **5. Изучи код.**
 Прочитай файлы из `task.files_hint`. Если их нет — найди релевантные через grep по `task.title` и `task.notes`. Не меняй ничего, пока не понимаешь область.
@@ -206,6 +229,7 @@ queue commit в feature branch, зафиксировать blocker владел�
 ## Хард-лимиты
 
 - НЕ работать в защищённых ветках (см. AGENTS.md — обычно main/master/develop/release/*) — только в собственной ветке задачи.
+- НЕ создавать и не submit'ить ветку с префиксом, отличным от `feature/`.
 - НЕ помечать задачу done без вызова `submit_task` с валидным evidence.
 - НЕ добавлять зависимости без подтверждения пользователя.
 - НЕ продолжать после `record_attempt → stop` — это зацикливание, нужен человек.
@@ -213,8 +237,10 @@ queue commit в feature branch, зафиксировать blocker владел�
   в текущей сессии либо заранее записанного task approval с точным path/scope,
   owner и provenance. `files_hint`/acceptance сами по себе не approval.
 - НЕ выдумывать конвенции — если их нет в `docs/harness/`, спроси пользователя.
-- НЕ начинать с красным/неизвестным baseline и не выдавать pre-existing failure
-  за регрессию текущей задачи.
+- До правки снять scoped baseline внутри текущей задачи и не выдавать
+  pre-existing failure за регрессию. Красный baseline блокирует задачу только
+  если из-за него невозможно проверить её acceptance; иначе сохранить finding
+  отдельно и продолжить в подтверждённом scope.
 - НЕ смешивать несколько runtime layers в одной правке; новый лог после фикса
   классифицировать как следующий слой.
 - НЕ обновлять golden expected вслед за падением текущей задачи без отдельного

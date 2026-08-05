@@ -36,21 +36,28 @@ target files не перезаписывать.
 
 ## Сначала определить состояние
 
-Прочитать target `AGENTS.md`, `docs/harness/`,
-`tasks-mcp.list_open_tasks(repo_path, include_all=true)` и git status. Raw
+Прочитать существующие target `AGENTS.md`, `docs/harness/` и git status. Если
+`docs/harness/tasks.json` уже существует, вызвать
+`tasks-mcp.list_open_tasks(repo_path, include_all=true)`; если его ещё нет,
+сначала создать минимальный context и только затем обращаться к очереди. Raw
 `tasks.json` содержит versioned definitions, но при out-of-band queue не является
 полным lifecycle state. Не повторять завершённый этап только из-за отсутствия
 слова в чате. Сопоставить durable evidence:
 
+Сначала достаточно проверить, что prototype читается, target доступен и
+официальный team template/source определён. Для prototype использовать
+commit/tag, а если source не является Git-репозиторием — детерминированный hash
+его значимых файлов без cache, outputs и runtime artifacts. Отсутствие Git HEAD
+у prototype само по себе не является blocker.
+
 | Состояние | Доказательство | Следующее действие |
 |---|---|---|
-| Context target неполон | нет repo `AGENTS.md` или обязательных team docs | `harness-context`, `bootstrap-minimal`, с exact `team_docs_source` при необходимости; review и preflight handoff |
+| Context target неполон | нет repo `AGENTS.md` или обязательных team docs | `harness-context`, `bootstrap-minimal`, с exact `team_docs_source` при необходимости |
 | Паспорт подключений отсутствует | нет `pre-industrialization-spec.md` | скопировать шаблон kit без перезаписи target; Stage A не блокировать, недостающие production-реквизиты запросить перед зависимым шагом B |
-| Эталон не определён | prototype argument и git evidence не дают точную версию источника | запросить точный path/repository + commit/tag; не анализировать неоднозначный источник |
-| Target не готов | нет clean baseline/doctor GO | `harness-doctor` после template review/initial commit |
+| Эталон не определён | prototype argument и evidence не дают commit/tag либо воспроизводимый content hash источника | запросить точный path/source; затем зафиксировать commit/tag или вычислить content hash, не угадывая источник |
 | Prototype не описан | нет `prototype-analysis.md` | `harness-source-analysis` |
-| Precheck не решён | нет `ds-precheck.md` или human decisions | `harness-ds-precheck`, затем checkpoint |
-| План A отсутствует | нет подтверждённой port queue | `harness-context` bootstrap-minimal, затем `harness-prototype-plan` |
+| Precheck отсутствует | нет `ds-precheck.md` | `harness-ds-precheck`; checkpoint только при П-находке или конфликте, иначе сразу план A |
+| План A отсутствует | нет подтверждённой port queue | `harness-context` bootstrap-minimal, затем `harness-prototype-plan`; обнаруженные identity/install/import gaps оформить обычными подготовительными задачами в этой же очереди |
 | Port не завершён | есть open plan-A task | одна task через `harness-work-session` |
 | Parity не доказан | нет green `docs/harness/evals/prototype-parity.md` для текущих hashes | `harness-eval`, `skill_mode=prototype-parity` |
 | Production baseline отсутствует | нет `team-patterns-production.md` | `harness-extract-prod` |
@@ -66,7 +73,7 @@ target files не перезаписывать.
 ## Оркестрация
 
 1. Объявить найденную фазу, доказательство и ближайший checkpoint. Перед
-   `source-analysis` проверить точную версию эталона; parity manifest и правило
+   `source-analysis` проверить точную версию или content hash эталона; parity manifest и правило
    сравнения строит `harness-eval` из prototype contract, тестов и безопасных
    примеров. Перед adapter проверить паспорт и техническую карту
    `data-boundaries.md`; перед live-вызовом — отдельное текущее разрешение.
@@ -77,12 +84,19 @@ target files не перезаписывать.
    не достигнут human checkpoint, blocker или запрошенный конечный этап. При
    последовательном выполнении задач никогда не держать несколько claims
    одновременно; после каждого submit проверить clean handoff.
-   Context/bootstrap и doctor artifacts оформить отдельным preflight handoff до
-   первой feature/port task.
+   Context, analysis, precheck и подтверждённый план разрешено оформить одним
+   подготовительным handoff до первой task. Не создавать отдельные commits или
+   checkpoints только ради проверки окружения.
    Перед `harness-work-session` отфильтровать dependency-ready open tasks текущей
-   фазы: если она одна, передать её exact `task_id`; если их несколько, показать
+   фазы по structured `depends_on` и merged lifecycle Tasks MCP: если она одна,
+   передать её exact `task_id`; если их несколько, показать
    короткий список и запросить выбор; если ни одной, сообщить blockers. Сам
    work-session не должен угадывать task.
+   Для `harness-eval:prototype-parity` дополнительно применить динамический
+   plan-gate из `harness-work-session`: все tasks того же `plan_id`/`stage: A`
+   завершены, их commit SHA входят в текущий target HEAD, ambiguous untagged
+   port-задач нет. Позиция task в массиве и первоначальный `depends_on` сами по
+   себе readiness не доказывают.
 3. Не расширять scope task. Новый слой, incident или неизвестный owner возвращать
    в соответствующий planner/delta-plan.
 4. Перед каждым human checkpoint дать компактный decision packet: факты,

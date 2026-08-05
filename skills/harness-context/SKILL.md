@@ -25,9 +25,11 @@ description: "Создаёт или безопасно обновляет harnes
 
 - `bootstrap-minimal` — team docs/template уже существуют в target либо передан
   точный `team_docs_source`: сохранить существующие docs; из явного source после
-  показа плана скопировать только отсутствующие team-owned файлы, записать их
-  hashes/provenance, затем создать/обновить `AGENTS.md` и при отсутствии пустой
-  `tasks.json`;
+  проверки отсутствия collisions автоматически скопировать только отсутствующие
+  team-owned файлы, записать их hashes/provenance, затем создать/обновить
+  `AGENTS.md` и при отсутствии пустой `tasks.json`. Сам вызов
+  `harness-productionize` разрешает эти scoped bootstrap-записи; отдельное
+  подтверждение плана не нужно;
 - `bootstrap-full` — harness и официальные team docs отсутствуют: предложить
   полный набор repo-owned артефактов и показать план до записи;
 - `refresh` — harness уже существует: обновить только доказанно устаревшие
@@ -44,6 +46,11 @@ description: "Создаёт или безопасно обновляет harnes
 collision и оставить target до решения владельца. Для скопированного snapshot
 создать `docs/harness/team-docs-source.json` с source label и SHA256 без secrets
 или персонального absolute path.
+
+В `bootstrap-minimal` human checkpoint нужен только при collision,
+противоречащих team sources или необходимости создать/изменить не входящий в
+этот bounded scope файл. Отсутствующие `AGENTS.md`, `tasks.json` и exact-source
+team docs сами по себе checkpoint не создают.
 
 ---
 
@@ -64,6 +71,12 @@ collision и оставить target до решения владельца. Д�
 ## Шаг 2: Интерактивный диалог (если нужно)
 
 Если контекста недостаточно — задавай вопросы:
+
+В `bootstrap-minimal` с точным team template/docs source этот общий опрос не
+проводить. Неизвестные cross-repo, deploy или production-boundary детали
+фиксируются как gaps для этапа B и не задерживают создание минимального
+контекста или анализ прототипа. Спрашивать только о collision/конфликте
+источников либо о факте, без которого невозможно определить сам target.
 
 ```
 > Для точного анализа мне нужно уточнить:
@@ -143,7 +156,7 @@ make verify     # линт + тесты ← запускать перед каж
 - [2–3 анти-паттерна, которые вызывали баги или путаницу в этом коде]
 
 ## Протокол сессии
-1. Прочитать AGENTS.md и результат `harness-doctor`
+1. Прочитать AGENTS.md и текущую задачу
 2. Запустить `harness-work-session` для ОДНОЙ задачи; claim/submit выполняет tasks-mcp
 3. Зафиксировать baseline до правок
 4. Реализовать только acceptance текущей задачи

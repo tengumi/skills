@@ -302,10 +302,14 @@ grep -c "^### \`" docs/harness/prototype-analysis.md
 Открытые вопросы требуют внимания перед планированием переноса:
 <список>
 
-Следующий шаг: harness-ds-precheck и human checkpoint. Готов перейти к precheck?
+Следующий шаг: harness-ds-precheck.
 ```
 
 Если есть открытые вопросы — пользователь решает: задать автору прототипа, или интерпретировать самому, или зафиксировать как риск.
+Если открытых вопросов, требующих решения, нет и skill вызван из
+`harness-productionize`, сразу вернуть управление оркестратору для запуска
+`harness-ds-precheck`; не создавать отдельный checkpoint между анализом и
+precheck.
 
 -----
 
@@ -372,5 +376,7 @@ grep -c "^### \`" docs/harness/prototype-analysis.md
 -----
 
 После того как `prototype-analysis.md` готов — переходи к
-`harness-ds-precheck`, затем после human checkpoint к `harness-prototype-plan`.
+`harness-ds-precheck`. Human checkpoint нужен только для реальных открытых
+вопросов или П-находок; если их нет, оркестратор сразу переходит к
+`harness-prototype-plan`.
 К `harness-prototype-port` переходят только задачи из подтверждённого плана.

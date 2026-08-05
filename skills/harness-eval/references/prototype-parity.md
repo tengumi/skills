@@ -10,6 +10,8 @@ boundary change; смысл входа, результата, ошибок, term
 ## Preconditions
 
 - Назвать prototype root/commit и target revision.
+- Проверить dynamic Stage-A plan gate: все задачи того же `plan_id` завершены,
+  а их `evidence.commit_sha` являются предками проверяемой target revision.
 - Иметь `prototype-contract.json` либо эквивалентный зафиксированный контракт.
 - Зафиксировать prompt, schema и runtime-config hashes без secret values.
 - Собрать sanitized input manifest из существующих тестов, примеров и

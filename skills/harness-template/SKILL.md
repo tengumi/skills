@@ -9,7 +9,7 @@ description: "Создаёт scaffold только для true greenfield. Ес�
 Для опромышливания существующего прототипа official team template обязателен и
 имеет приоритет над всеми generic секциями ниже. Прими `template_path`, скопируй
 его структуру, затем выполни классифицированный rename, проверь scaffold и после
-initial baseline commit запусти `harness-doctor`.
+initial baseline commit передай управление `harness-productionize`.
 
 ---
 
@@ -368,8 +368,9 @@ verify: lint test
 
 Сначала проверь сам сгенерированный scaffold: clean `make install`, import smoke
 и `make verify` должны проходить сразу. После review, инициализации репозитория и
-первого baseline commit запусти `harness-doctor` перед первой task-сессией: doctor
-проверяет уже готовый к ветвлению checkout, а не незакоммиченный scaffold.
+первого baseline commit передай управление `harness-productionize` для переноса
+прототипа либо `harness-work-session` для обычной очереди. Отдельная повторная
+проверка окружения не нужна: зелёное evidence scaffold переиспользуется.
 
 Вывод:
 ```

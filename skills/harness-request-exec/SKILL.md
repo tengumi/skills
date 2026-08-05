@@ -61,7 +61,7 @@ contents — нет. stdout/stderr попадут в audit files.
   "stop_on_failure": true,
   "sync": "pull",
   "context": {
-    "branch": "agent/TICKET-001",
+    "branch": "feature/TICKET-001",
     "purpose": "verify before commit"
   }
 }
