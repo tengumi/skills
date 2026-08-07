@@ -25,6 +25,9 @@ pattern, release reference — build/CI baseline. Каждый факт хран
 4. Выполнить negative search по старым template tokens. Доменные и external
    service names классифицировать отдельно; глобально не заменять.
 5. Проверить task approvals на каждый protected path и dependency.
+6. Проверить `verification_level`: обычная deploy capability не повышает себя до
+   `bundle`; полную clean chain выполняет только plan-designated final bundle
+   owner.
 
 Неизвестные base image, CI shared library, credentials/inventory ids, SM id/name,
 secret/mount names или schema owner — blocker до записи исполняемого artifact.
@@ -52,9 +55,21 @@ generic файлы, если team baseline использует другой м�
 
 ## Проверка
 
-Выполнить воспроизводимую цепочку:
+Полную воспроизводимую цепочку выполнять только при
+`verification_level=bundle`, один раз в bundle/deploy wave после
+изменений manifest/lock, resources, packaging, build files или entrypoints:
 
 `clean install → import smoke → verify → build → artifact inventory → process smoke`
+
+При `verification_level=capability` выполнить scoped и layer-specific checks
+из task, но не повторять полную clean chain. Внутри любой deploy task сначала
+выполнить scoped checks изменённых файлов.
+Не повторять clean install/build, если после последнего зелёного gate менялись
+только поверхности, не входящие в его invalidation paths. Evidence можно
+переиспользовать, только когда его commit является предком текущего HEAD, а diff
+после него не затрагивает manifest/lock, runtime resources, packaging/build или
+process entrypoints. В итоговом handoff указать использованный evidence и diff,
+которым подтверждена его актуальность.
 
 Проверить отдельно API, worker, scheduler и init/migration targets, если они
 применимы. Startup, способный менять БД, разрешён только на isolated или
@@ -72,6 +87,8 @@ stage и explicit authorization. Для live proof использовать `har
 - Не менять prompts, schemas, LLM parameters, retry или business workflow.
 - Не удалять generated/runtime artifacts вне явной cleanup task.
 - Не закрывать deploy-ready без clean install и запуска production entrypoints.
+- Не требовать новый clean build после каждой task без изменения входов build
+  gate; scoped/capability проверки и сохранённое актуальное evidence достаточны.
 - Не запускать migration-capable artifact против unknown/shared DB.
 - Один deploy task не должен одновременно исправлять config, DB, integration и
   business logic; новый слой возвращается в delta-plan.

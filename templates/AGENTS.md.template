@@ -54,13 +54,17 @@
 ## Boundaries
 
 - Protected branches: `<main/master/develop/release policy>`.
+- Единственный допустимый формат task branch:
+  `feature/<ID>[-short-description]`, где `ID` — `task.ticket`, если он задан,
+  иначе `task.id`. Другие префиксы запрещены для всех типов задач, включая
+  bugfix и hotfix. Не запрашивать Jira только ради ветки.
 - Protected paths: `<CI/Docker/migrations/dependencies/generated files>`.
 - Secrets, raw LLM/RAG output, PII и confidential runtime data не коммитить.
 - Team-owned docs не переписывать; расхождение оформлять proposal.
 
 ## Протокол задачи
 
-1. Прочитать этот файл, doctor report и текущую задачу.
+1. Прочитать этот файл и текущую задачу.
 2. Claim ровно одну задачу через tasks-mcp.
 3. Передать `use_skill` и `skill_mode` без догадок.
 4. Зафиксировать baseline, изменить только acceptance scope.
@@ -70,7 +74,6 @@
 
 ## Harness docs
 
-- `docs/harness/environment-doctor.md`
 - `docs/harness/prototype-analysis.md`
 - `docs/harness/ds-precheck.md`
 - `docs/harness/prototype-contract.json`

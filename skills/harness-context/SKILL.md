@@ -140,7 +140,7 @@ make install    # установить / развернуть зависимос
 make dev        # запустить dev-сервер или агента
 make test       # полный набор тестов
 make lint       # линтеры + проверка типов
-make verify     # линт + тесты ← запускать перед каждым коммитом
+make verify     # полный repo-gate на capability/bundle границе
 ```
 
 ## Карта кода
@@ -160,7 +160,7 @@ make verify     # линт + тесты ← запускать перед каж
 2. Запустить `harness-work-session` для ОДНОЙ задачи; claim/submit выполняет tasks-mcp
 3. Зафиксировать baseline до правок
 4. Реализовать только acceptance текущей задачи
-5. Verify через `harness-request-exec`, если этого требует окружение
+5. Выполнить уровень проверки из задачи; watcher использовать только если этого требует окружение
 6. Пройти harness-pre-commit-check и submit_task с evidence
 
 ## Подробная документация

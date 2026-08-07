@@ -51,6 +51,13 @@ golden dataset сам по себе такого разрешения не да�
 - Один LLM run не доказывает regression; измерять variance отдельно.
 - Mock/static golden не доказывает install/build/registration/frozen resources,
   production boundary или process wiring.
+- Network-free запуск real `create_app`/`app` с production DI/lifespan и
+  protocol-faithful transport stub выполняет
+  `harness-production-readiness:process`, а не новый eval mode.
+- `skill_mode=live` использует реальную отдельно разрешённую внешнюю систему;
+  local protocol stub является только offline preflight. В полном
+  productionize-маршруте live task относится к Stage C и не меняет уже зелёный
+  статус offline Stage B.
 - Threshold брать из task/spec; не применять универсальный процент.
 
 ## Report contract
@@ -87,6 +94,7 @@ credentials, certificates, `.env`, PII или confidential outputs.
   `harness-golden` run и human/release decision.
 - Не выдумывать paths, contracts, owners или environment status.
 - Не смешивать golden, parity и live side effects в одной task.
+- Не принимать protocol stub или fake provider/DI за `live` evidence.
 - Не считать framework success-log business success.
 - Не закрывать result ниже task threshold.
 - Брать domain facts/correctness только из task/spec/sources.

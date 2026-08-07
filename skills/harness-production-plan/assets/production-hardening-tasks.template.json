@@ -1,12 +1,20 @@
 {
   "_meta": {
-    "schema_version": 3,
-    "purpose": "Каталог условных task families этапа B. harness-production-plan превращает его в applicability matrix и создаёт только доказанно нужные задачи.",
+    "schema_version": 4,
+    "purpose": "Каталог условных task families offline-этапа B и внешних release-гейтов C. harness-production-plan превращает его в applicability matrix и создаёт только доказанно нужные задачи.",
     "usage": [
       "Не копировать этот файл в tasks.json.",
       "Не использовать фиксированный диапазон id; выбирать следующий свободный numeric id.",
+      "При persistence выводить stage из phase: B0-B4 -> B, C1-C3 -> C.",
       "Для каждой dimension сначала установить required, already_satisfied, not_applicable или blocked.",
       "Разворачивать per_boundary и per_process отдельно.",
+      "Для одной external boundary объединять совместимый SDK constraint, provider/client lifecycle, adapter, DI и protocol tests в одну capability task.",
+      "После B2 wiring и применимых B3 cleanup/observability changes создавать одну offline-runtime-lifecycle task; live evaluation остаётся отдельным разрешённым действием.",
+      "Logging, health/readiness и telemetry одного process set объединять в одну operability capability, если нет разных owners или rollback boundaries.",
+      "Использовать verification pyramid: scoped -> capability -> offline runtime -> bundle -> live; тяжёлый gate повторять только при изменении его входов.",
+      "Каждая family задаёт verification_level: scoped, capability, runtime или bundle. Offline runtime имеет runtime; ровно одна final family владеет bundle gate.",
+      "Обычный safe-offline Stage-B plan стремится к 7-12 tasks и не превышает 15 до обязательного merge/split pass; live/shared-DB/deploy decision tasks считаются отдельно.",
+      "Исходная automatic safe-offline authorization либо одно подтверждение плана покрывает перечисленные dependency/protected-path changes; повторное решение нужно только для scope expansion, conflict/new boundary, live, shared DB, migration side effect или deploy execution.",
       "Для implementation task все paths, source sections и approvals разрешить до persistence; decision/acquisition task может фиксировать exact blocker и owner gap.",
       "Для многорежимного use_skill записывать exact mode только в общем поле skill_mode."
     ],
@@ -18,16 +26,20 @@
     },
     "global_invariants": [
       "Prototype workflow, prompts, provider/model/params, schemas, retry/timeout, error/terminal/publish semantics не меняются без отдельного approved behavior-change task.",
-      "Одна implementation task меняет один layer/owner.",
+      "Одна implementation task меняет одну capability; технические части одной external boundary не дробятся по файлам.",
       "Template, production neighbour и release reference сохраняют разные source roles и provenance.",
       "No-op, placeholder и inapplicable tasks не создаются.",
-      "make verify дополняется, а не заменяет layer-specific runtime evidence."
+      "make verify дополняется, а не заменяет capability/runtime evidence.",
+      "APP scope side-effect-free factory/client не разрешает eager network session; активное соединение открывается request/task-lazy, если authoritative topology явно не требует startup connection.",
+      "Stage B нельзя закрыть без real-app offline runtime/lifecycle evidence для production DI и lifespan.",
+      "External live/shared-DB/deploy gates принадлежат Stage C и не возвращают зелёный offline Stage B в incomplete."
     ]
   },
   "required_dimensions": [
     "identity_and_clean_checkout",
     "clean_install_and_dependency_graph",
     "target_data_boundaries",
+    "external_client_lifecycle",
     "process_topology",
     "database_ownership_and_migrations",
     "effective_runtime_config",
@@ -37,6 +49,7 @@
     "structured_logging",
     "health_readiness_and_metrics",
     "telemetry",
+    "offline_runtime_lifecycle",
     "runtime_bundle_and_resources",
     "container_build",
     "ci_cd_and_deploy_identity",
@@ -58,19 +71,27 @@
     },
     {
       "phase": "B2",
-      "gate": "Effective config, adapters, process wiring and persistence work."
+      "gate": "Effective config, boundary capabilities, process wiring and persistence are complete."
     },
     {
       "phase": "B3",
-      "gate": "Residual layout is resolved before observability and packaging freeze paths."
+      "gate": "One consolidated post-parity cleanup capability and observability are complete before the real-app offline runtime/lifecycle gate."
     },
     {
       "phase": "B4",
-      "gate": "Bundle, container, CI/deploy and permanent safety gates."
+      "gate": "Offline bundle, container and permanent safety gates."
     },
     {
-      "phase": "B5",
-      "gate": "Integration evaluation, clean release/stand proof and runbook handoff."
+      "phase": "C1",
+      "gate": "External release inputs, CI/deploy identity and optional quality evidence."
+    },
+    {
+      "phase": "C2",
+      "gate": "Separately authorized live/stand and isolated external-state validation."
+    },
+    {
+      "phase": "C3",
+      "gate": "Operations handoff and explicit release decision."
     }
   ],
   "task_families": [
@@ -81,6 +102,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "deploy",
+      "verification_level": "capability",
       "applies_if": "Target/template review found inconsistent repository, service, package, image, job, queue or schema identity.",
       "prerequisites": [
         "Classified token inventory exists.",
@@ -101,7 +123,8 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "dependency",
-      "applies_if": "Clean install/import fails or target, root workspace, lock and release dependency evidence diverge.",
+      "verification_level": "capability",
+      "applies_if": "Clean install/import fails, workspace-wide target/root/lock evidence diverges, or dependency compatibility requires an isolated investigation not owned by one boundary capability.",
       "prerequisites": [
         "Dependency policy and owner approvals are known.",
         "Target-specific imports are inventoried."
@@ -110,6 +133,7 @@
       "acceptance_template": [
         "Root/project/lock/release differences classified instead of wholesale replacement.",
         "Target-specific dependencies and approved shared pins are preserved.",
+        "Lower-bound-only constraints do not admit an unverified next major; exact or bounded compatible range and locked version are evidence-backed.",
         "Clean external install and import smoke pass without warm-environment leakage."
       ]
     },
@@ -120,6 +144,7 @@
       "cardinality": "per_boundary",
       "use_skill": "harness-production-readiness",
       "skill_mode": "contract",
+      "verification_level": "scoped",
       "applies_if": "A file/parity boundary must be replaced, or an existing external integration needs exact production proof.",
       "prerequisites": [
         "Boundary classification is known.",
@@ -129,6 +154,7 @@
       "acceptance_template": [
         "The exact data-boundaries technical section is filled from a versioned authoritative contract and sanitized sample, or a greenfield proposal is prepared as a separate design input.",
         "Method/path or exact tool/topic, headers, request, response, errors, schema/versioning, auth, ordering, idempotency, retries, timeout and SLO are explicit.",
+        "SDK constraint/lock, transport, local/cluster access, object/session scope, create/close events, startup/readiness criticality, retry owner and failure boundary are explicit.",
         "Observed File IO semantics remain prototype evidence and are not misrepresented as a pre-existing endpoint.",
         "The technical state is DOCUMENTED/MAPPED when facts are complete, or BLOCKED with an exact missing input; no manual status word is required."
       ]
@@ -140,6 +166,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "process",
+      "verification_level": "scoped",
       "applies_if": "Approved source processes do not yet identify every required library, CLI, API, worker, scheduler or init process.",
       "prerequisites": [
         "Target architecture owner is known."
@@ -158,6 +185,7 @@
       "cardinality": "per_database",
       "use_skill": "harness-production-readiness",
       "skill_mode": "db",
+      "verification_level": "scoped",
       "applies_if": "A required process reads, writes or migrates a database/schema and ownership or migration policy is unresolved.",
       "prerequisites": [
         "Database usage is present in approved topology."
@@ -175,6 +203,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "config",
+      "verification_level": "capability",
       "applies_if": "Approved process modes require config not already proven equivalent in source and packaged runtime.",
       "prerequisites": [
         "Process topology and config source precedence are approved.",
@@ -194,16 +223,20 @@
       "cardinality": "per_boundary",
       "use_skill": "harness-production-readiness",
       "skill_mode": "adapter",
+      "verification_level": "capability",
       "applies_if": "A contract-ready boundary exists and current production adapter/mapping is absent or incorrect.",
       "prerequisites": [
         "The matching data-boundaries section is at least MAPPED with exact operation, auth and no material conflict.",
         "The authoritative contract revision is complete and traceable to the integration passport or official source.",
         "Live authorization is separate from execution transport."
       ],
-      "title_template": "Реализовать и проверить adapter для contract-ready boundary",
+      "title_template": "Реализовать contract-ready boundary capability",
       "acceptance_template": [
+        "Compatible SDK constraint and locked version, side-effect-free provider lifecycle, adapter mapping, production DI and protocol tests are completed as one capability.",
         "Generated client has spec/version, reproducible generation and regeneration policy when applicable.",
         "Exact method/path or tool/topic, request/response/error bodies, auth/headers, aliases, encoding, absent/null/empty/date/enum mapping and prerequisites are tested.",
+        "APP-scoped factory/client object performs no eager network handshake; active session/stream is request/task-lazy unless an authoritative contract marks it startup-critical.",
+        "Protocol-faithful test keeps the production client/provider/DI and stubs only the external transport, including handshake, operation and close/error paths required by the SDK.",
         "Terminal error remains error and publish/side effect occurs only in approved success state.",
         "Temporary parity adapter is removed only after mapping parity is green.",
         "Live verification, when applicable, is a separate harness-eval:live task with its own approval gate."
@@ -216,7 +249,8 @@
       "cardinality": "per_process",
       "use_skill": "harness-production-readiness",
       "skill_mode": "process",
-      "applies_if": "An approved process lacks real registration, DI wiring, invocation or terminal-state proof.",
+      "verification_level": "capability",
+      "applies_if": "An approved process lacks aggregate registration, entrypoint invocation or terminal-state proof that is not already owned by one boundary capability.",
       "prerequisites": [
         "Process topology is approved.",
         "Required config and boundary contracts exist."
@@ -235,6 +269,7 @@
       "cardinality": "per_database",
       "use_skill": "harness-production-readiness",
       "skill_mode": "db",
+      "verification_level": "capability",
       "applies_if": "Database/migrations are required and source, bundle or target DB revision evidence has a gap.",
       "prerequisites": [
         "Database ownership and safe validation mode are approved.",
@@ -251,16 +286,20 @@
       "key": "residual-layout",
       "phase": "B3",
       "order": 100,
-      "cardinality": "per_approved_batch",
+      "cardinality": "single",
       "use_skill": "harness-team-layout-alignment",
-      "applies_if": "Read-only audit proves residual scaffold/layout drift or dead-code candidates after parity port.",
+      "verification_level": "capability",
+      "applies_if": "The ds-precheck post-parity cleanup ledger or read-only audit proves applicable residual scaffold/layout drift or dead-code candidates after parity port.",
       "prerequisites": [
         "Audit mode is complete.",
-        "Exact paths are human-approved.",
+        "Exact non-destructive paths are covered by the recorded safe-offline plan; ambiguous deletion paths are human-approved.",
         "Indirect registration allowlist and DB/migration approvals exist."
       ],
-      "title_template": "Исправить подтверждённый residual layout drift",
+      "title_template": "Выполнить consolidated post-parity cleanup",
       "acceptance_template": [
+        "All applicable approved О-findings are handled as one capability rather than file/finding microtasks.",
+        "One post-parity hygiene audit covers stale identities, undocumented routes, manual HTTP where generated clients are required, swallowed errors, unjustified wrappers, startup network providers, pod File IO, .env mutation, bundle resources and unreachable graph code.",
+        "Every hygiene finding is classified fix now, retain with reason or defer with owner; findings are not expanded into per-file tasks.",
         "Only approved exact paths move/delete; canonical empty template layers remain.",
         "Static candidate, reachability, human checkpoint and behavior/process smoke all agree.",
         "Contract/golden/build remain green; green tests alone are not proof of dead code."
@@ -273,6 +312,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "observability",
+      "verification_level": "capability",
       "applies_if": "Approved common/team logging is not already reused or required context/redaction proof is missing.",
       "prerequisites": [
         "Process topology is stable."
@@ -291,6 +331,7 @@
       "cardinality": "per_process",
       "use_skill": "harness-production-readiness",
       "skill_mode": "observability",
+      "verification_level": "capability",
       "applies_if": "Approved runtime requires health/readiness/metrics and common/template coverage is absent or unproven.",
       "prerequisites": [
         "Exact mechanism/path comes from approved team source.",
@@ -310,6 +351,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "observability",
+      "verification_level": "capability",
       "applies_if": "Approved topology/team baseline requires telemetry and it is not already satisfied.",
       "prerequisites": [
         "Dependency approval exists when needed.",
@@ -323,15 +365,40 @@
       ]
     },
     {
+      "key": "offline-runtime-lifecycle",
+      "phase": "B3",
+      "order": 135,
+      "cardinality": "single",
+      "use_skill": "harness-production-readiness",
+      "skill_mode": "process",
+      "verification_level": "runtime",
+      "applies_if": "Stage B changes production boundaries, DI, lifespan or API/worker process wiring.",
+      "prerequisites": [
+        "All required B2 boundary capabilities and process wiring are complete.",
+        "Applicable consolidated cleanup and observability changes are complete.",
+        "Production app factory/export and process entrypoints are known.",
+        "External transports can be replaced by protocol-faithful local stubs without replacing production providers or DI."
+      ],
+      "title_template": "Доказать offline runtime и lifecycle production wiring",
+      "acceptance_template": [
+        "The real exported create_app/app, production DI and real lifespan are exercised; bare FastAPI and test-only composition are forbidden evidence.",
+        "Only external transports are stubbed; production client, provider, mapping, DI and process wiring remain real.",
+        "A non-startup boundary outage does not kill application startup, connection opens only in the relevant request/task and closes cleanly.",
+        "Applicable API and worker paths cover success, unavailable transport and terminal error without network, broker or shared-DB side effects.",
+        "Sanitized evidence records exact revision, commands and lifecycle events."
+      ]
+    },
+    {
       "key": "runtime-bundle",
       "phase": "B4",
       "order": 140,
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "deploy",
+      "verification_level": "bundle",
       "applies_if": "Approved release archetype builds a bundle/artifact and dependency/resource/process inclusion is not proven.",
       "prerequisites": [
-        "Dependency baseline, process wiring and DB safety gates are green.",
+        "Dependency baseline, process wiring, offline runtime/lifecycle and DB safety gates are green.",
         "Build-file approval is recorded."
       ],
       "title_template": "Собрать и запустить production runtime artifact",
@@ -348,6 +415,7 @@
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "deploy",
+      "verification_level": "capability",
       "applies_if": "Approved release archetype requires a container and current build/runtime proof has a gap.",
       "prerequisites": [
         "Runtime artifact gate is green or not applicable.",
@@ -362,11 +430,12 @@
     },
     {
       "key": "ci-cd-deploy",
-      "phase": "B4",
+      "phase": "C1",
       "order": 160,
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "deploy",
+      "verification_level": "capability",
       "applies_if": "Approved deployment requires CI/CD or deploy metadata not already proven for target identity.",
       "prerequisites": [
         "Deploy identifiers are resolved.",
@@ -386,6 +455,7 @@
       "order": 170,
       "cardinality": "single",
       "use_skill": "harness-governance-gates",
+      "verification_level": "capability",
       "applies_if": "Repository/CI lacks persistent guards for its applicable secrets, artifacts, generated outputs or prototype contract.",
       "prerequisites": [
         "Repository policies and protected paths are known."
@@ -399,10 +469,11 @@
     },
     {
       "key": "quality-golden-synthesis",
-      "phase": "B5",
+      "phase": "C1",
       "order": 172,
       "cardinality": "per_eval_question",
       "use_skill": "harness-golden",
+      "verification_level": "capability",
       "applies_if": "An approved external quality standard requires a new or stale reference-based golden dataset; prototype parity is not the truth source.",
       "prerequisites": [
         "golden-spec intent, accepted count, seed, agent I/O contract and data policy are explicit.",
@@ -418,11 +489,12 @@
     },
     {
       "key": "quality-golden-evaluation",
-      "phase": "B5",
+      "phase": "C1",
       "order": 175,
       "cardinality": "per_eval_question",
       "use_skill": "harness-eval",
       "skill_mode": "golden",
+      "verification_level": "capability",
       "applies_if": "A released golden dataset exists and the target agent quality must be measured against it.",
       "prerequisites": [
         "Released dataset manifest, audit, hash, compare/equivalence rule and threshold are explicit.",
@@ -437,12 +509,13 @@
     },
     {
       "key": "integration-evaluation",
-      "phase": "B5",
+      "phase": "C2",
       "order": 180,
       "cardinality": "per_eval_question",
       "use_skill": "harness-eval",
       "skill_mode": "live",
-      "applies_if": "A production boundary or process invariant requires approved live/runtime proof beyond deterministic parity tests.",
+      "verification_level": "capability",
+      "applies_if": "A production boundary or process invariant requires proof against an approved real external system beyond deterministic offline runtime tests.",
       "prerequisites": [
         "Eval question, class, threshold and data policy are explicit.",
         "Live flag/secure-stage authorization exists independently of execution transport."
@@ -456,18 +529,15 @@
     },
     {
       "key": "clean-release-stand",
-      "phase": "B5",
+      "phase": "C2",
       "order": 190,
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "stand",
-      "verification_route": {
-        "use_skill": "harness-eval",
-        "skill_mode": "live"
-      },
+      "verification_level": "capability",
       "applies_if": "Full production readiness is the target outcome.",
       "prerequisites": [
-        "All required B0-B4 tasks are green.",
+        "All required B0-B4 tasks, including offline runtime/lifecycle, are green.",
         "Secure stand and side-effect approvals exist."
       ],
       "title_template": "Доказать clean release и stand readiness",
@@ -475,25 +545,28 @@
         "Clean install, import, verify, build, source/artifact/image processes, DB-safe startup and boundary mapping matrix is complete.",
         "Sanitized stand smoke proves expected node/boundary/terminal/publish path.",
         "Each failing layer becomes a separate corrective task; this task does not mix fixes.",
-        "After green evidence, the owner release decision (approve or defer), approver, date, scope and report link are recorded in task evidence; Codex does not make this decision."
+        "Green evidence produces a compact decision packet for C3; this task does not make or record the owner release decision."
       ]
     },
     {
       "key": "operations-runbook",
-      "phase": "B5",
+      "phase": "C3",
       "order": 200,
       "cardinality": "single",
       "use_skill": "harness-production-readiness",
       "skill_mode": "runbook",
-      "applies_if": "An operated service/process requires a handoff runbook and current documentation lacks proven scenarios.",
+      "verification_level": "scoped",
+      "applies_if": "Full production readiness requires an operations handoff and explicit owner release decision; runbook content is added only where applicable.",
       "prerequisites": [
-        "Real process, boundary and stand failure modes are known."
+        "Required C2 external gates are green or explicitly not applicable.",
+        "Real process, boundary and stand failure modes are known where a runbook is applicable."
       ],
-      "title_template": "Собрать operations runbook из доказанных failure modes",
+      "title_template": "Подготовить operations handoff и получить release decision",
       "acceptance_template": [
-        "Only applicable observed or approved scenarios are documented.",
+        "Only applicable observed or approved scenarios are documented; an inapplicable runbook does not remove the release decision gate.",
         "Each scenario has symptoms, safe diagnostics, remediation, escalation owner and evidence source.",
-        "Unresolved owner/namespace is a blocker or explicit owned defer, not a silent TODO."
+        "Unresolved owner/namespace is a blocker or explicit owned defer, not a silent TODO.",
+        "The owner records APPROVE or DEFER, approver/role, date, exact scope and C2 report links; Codex never chooses the release decision."
       ]
     }
   ]

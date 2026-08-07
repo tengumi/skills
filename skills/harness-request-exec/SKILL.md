@@ -20,7 +20,12 @@ description: "Выполняет make/test/lint и другие команды �
 ## Шаги
 
 **1. Сформируй request_id.**
-Формат: `{timestamp}-{task_id}` если есть task, иначе `{timestamp}-manual`. Timestamp в формате `YYYY-MM-DDTHH:MM:SS` без миллисекунд, без часового пояса — этого достаточно для уникальности в рамках одного дня.
+Формат: `{timestamp}-{task_id}-{attempt}` если есть task, иначе
+`{timestamp}-manual-{attempt}`. Timestamp — UTC
+`YYYYMMDDTHHMMSSffffffZ`, attempt — `a1`, `a2`, ... . Разрешены только
+`[A-Za-z0-9._-]`: двоеточия, пробелы и path separators запрещены. Перед записью
+проверить, что request/report с таким id не существует; id никогда не
+переиспользовать.
 
 **2. Определи команды.**
 Команды бери из нормализованного `task.acceptance` после claim (в persisted
@@ -33,6 +38,13 @@ provider/model/base URL/source/timeout/TLS mode допустимы, tokens/passw
 contents — нет. stdout/stderr попадут в audit files.
 
 Формат команды: `{"cmd": "make verify", "cwd": "."}`. `cwd` — относительно корня репы.
+
+Собери все команды одной verification wave с одинаковыми sync/profile/safety
+условиями в **один** request и сохрани порядок. Например scoped lint+tests либо
+единственный bundle batch `clean install → full verify → build → smoke`.
+Не создавать отдельный watcher round-trip на каждую команду. Разделять requests
+только если отличаются sync direction, execution profile, разрешение/side
+effects или предыдущий результат нужен для формирования следующих команд.
 
 **3. Определи нужен ли sync.**
 Поле `sync` в request:
@@ -51,7 +63,7 @@ contents — нет. stdout/stderr попадут в audit files.
 
 ```json
 {
-  "request_id": "2026-05-21T14:00:00-T-001",
+  "request_id": "20260521T140000123456Z-T-001-a1",
   "task_id": "T-001",
   "commands": [
     {"cmd": "make install", "cwd": "."},
@@ -61,8 +73,13 @@ contents — нет. stdout/stderr попадут в audit files.
   "stop_on_failure": true,
   "sync": "pull",
   "context": {
-    "branch": "feature/TICKET-001",
-    "purpose": "verify before commit"
+    "branch": "feature/T-001-config",
+    "purpose": "verify before commit",
+    "verification_level": "bundle",
+    "tree_fingerprint": "<expected 64 hex, если уже известен>",
+    "lock_fingerprint": "<expected 64 hex или N/A, если уже известен>",
+    "execution_profile": "<observed profile прошлого report, если уже известен>",
+    "commands_fingerprint": "<expected normalized command hash, если уже известен>"
   }
 }
 ```
@@ -70,6 +87,19 @@ contents — нет. stdout/stderr попадут в audit files.
 `timeout_seconds` — на всю цепочку команд. По умолчанию 600 (10 минут), для длинных тестов можно больше.
 
 `stop_on_failure: true` — остановиться на первой ошибке. Обычно так и нужно.
+
+Четыре fingerprints в request — optional expected hints, не placeholders:
+неизвестное поле опустить и никогда не угадывать. `commands_fingerprint` —
+SHA-256 compact JSON (`sort_keys=true`, separators `,`/`:`) от ordered массива
+`[{"cmd": <exact string>, "cwd": <POSIX-normalized path>}]`. Для
+`execution_profile` использовать только `evidence.observed` прошлого report
+того же watcher profile. Canonical фактический key всегда вычисляет watcher.
+
+Перед созданием request разрешено переиспользовать существующий успешный report
+только при точном совпадении `tree_fingerprint`, `lock_fingerprint`,
+`execution_profile` и нормализованного ordered command list. Совпадение branch,
+commit SHA или task id недостаточно. Если одно поле отсутствует/не доказано,
+создать новый request.
 
 **5. Дождись report.**
 
@@ -89,6 +119,23 @@ contents — нет. stdout/stderr попадут в audit files.
 - `"error"` — что-то с самим выполнением (escape cwd, executor exception)
 
 В поле `report.results` — массив результатов каждой команды с `exit_code`, `stdout`, `stderr`, `duration_ms`. Их и читай чтобы понять что произошло.
+
+Если `request_identity`/`sync.reason` сообщает `duplicate_request_id`,
+`invalid_request_identity` или `idempotency_state_unavailable`, команды не
+выполнялись и это не ошибка кода задачи. Не записывать такой результат как
+failed test attempt: использовать существующий отчёт исходного ID либо после
+исправления state/формата создать новый канонический `request_id`; старый ID
+никогда не переисполнять.
+
+Для reusable evidence report обязан вернуть исходный безопасный `context`,
+фактический runtime tree/lock fingerprint после sync, execution profile,
+ordered commands fingerprint и sync status. `evidence.observed` — canonical key.
+Любой `requested_matches.<field> == false` означает mismatch; `null` означает,
+что expected hint не передавался. Первый успешный запуск с green pull и без
+`false` не повторять только ради `requested_matches.all=true`: для следующего
+reuse сравнить текущий требуемый key с его `evidence.observed`. При `sync: pull`
+sync failure означает, что команды не должны были запускаться. Report без
+observed key годится только для диагностики.
 
 **7. Если failure — task lifecycle или manual report.**
 
@@ -122,7 +169,9 @@ failure/timeout и безопасный следующий шаг; сам report
 - НЕ пиши `sync: "push"` если не уверен — можно перетереть файлы control-plane
   копии результатом с execution workstation.
 - НЕ генерируй много requests подряд без дождавшись report — нагружаешь watcher.
-- НЕ кэшируй report между сессиями — каждая команда требует свежего exec-request.
+- НЕ переиспользуй report по task id, branch, commit или похожему названию
+  команды. Межсессионный reuse допустим только по exact
+  tree/lock/profile/ordered-commands key и успешному sync/execution status.
 - НЕ помещай секреты в `context` или в `cmd` — request видим в репе и попадает в audit log.
 - НЕ запускать `env`, `printenv`, `set` или dump всего settings object. Если
   упавшая команда случайно вывела secret-bearing output, не копировать его в
@@ -134,6 +183,8 @@ failure/timeout и безопасный следующий шаг; сам report
 - Один файл в `docs/harness/exec-requests/{request_id}.json` (потом watcher переместит в `exec-processed/`)
 - Один файл в `docs/harness/exec-reports/{request_id}.json` с результатом
 - Понимание прошло ли verify, что показали тесты
+- Reusable verification key: exact tree/lock/profile/ordered commands либо
+  явное `not reusable`
 - Готовность вернуть управление в harness-work-session (или ответить пользователю)
 
 При timeout/error:

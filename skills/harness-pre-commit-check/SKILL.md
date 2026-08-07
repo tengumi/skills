@@ -100,19 +100,26 @@ commit. `files_hint` без approved plan/decision approval не заменяе�
 - добавляет dependency, migration behavior, deploy/live/DB side effect без
   отдельного разрешения.
 
-### 4. Использовать минимально достаточное evidence
+### 4. Использовать verification pyramid и минимально достаточное evidence
 
-Сначала найти уже зелёное evidence для того же runtime tree, dependency/lock
-inputs и execution path. Не повторять команду из-за новой сессии, commit
-analysis docs или повторного вызова pre-check.
+Сначала найти уже зелёное evidence с точным ключом:
+`runtime tree fingerprint + dependency/lock fingerprint + execution profile +
+normalized command list`. Все четыре части должны совпасть. Не повторять
+команду из-за новой сессии, нового commit SHA с тем же runtime tree, изменения
+только analysis docs или повторного вызова pre-check. Branch/commit сам по себе
+не доказывает и не инвалидирует результат. Если хотя бы один fingerprint или
+список команд нельзя доказать — evidence не переиспользовать.
 
-Выбрать проверки по diff:
+Сначала прочитать `task.verification_level` и выбрать проверки по уровню:
 
 - docs-only/preflight: `git diff --check`, parse/schema изменённых JSON/YAML и
   secret/runtime-artifact scan; полный test/build не нужен;
-- source task: scoped tests и canonical verify из AGENTS.md/Makefile;
-- dependency/lock: clean install и документированный import smoke;
-- entrypoint/build/resources: build и применимый process/artifact smoke;
+- `scoped`: touched lint/import/tests;
+- `capability`: scoped checks + цельный observable capability contract suite;
+- `runtime`: capability checks + production process/DI/lifespan smoke;
+- `bundle`: clean install, canonical full verify, build/package inventory и
+  применимый source/frozen process smoke;
+- dependency/lock ниже bundle: только resolution/import compatibility check;
 - migrations: source/dist inventory и разрешённая безопасная проверка без
   shared-DB mutation;
 - external boundary: sanitized contract/mock check; live только по отдельному
@@ -120,6 +127,11 @@ analysis docs или повторного вызова pre-check.
 
 `make verify` не заменяет применимый layer-specific gate, но и не дублировать
 lint/format/test, уже входящие в canonical verify.
+
+В одном `plan_id` bundle имеет ровно одного владельца, если он применим. Build
+или clean install не запускать повторно для scoped/capability/runtime task.
+Packaging diff в task, которая не является согласованным bundle owner, — это
+planning mismatch, а не причина молча повысить уровень проверки.
 
 Если обязательное evidence отсутствует или красное, вернуть управление в
 исполняющий workflow для исправления/проверки. Не превращать это автоматически в
@@ -183,6 +195,7 @@ status: PASS_AUTO
 commit_authorized: true
 commit_message: <message>
 evidence_reused: <reports or none>
+verification_key: <tree/lock/profile/commands>
 warnings: <non-blocking list>
 ```
 

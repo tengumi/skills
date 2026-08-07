@@ -28,11 +28,23 @@ submit'ить.
 исходный baseline проверяй внутри текущей задачи минимально достаточными
 командами; не создавай для этого отдельный report или commit.
 
+В непрерывном orchestrated run не перечитывать стабильный контекст после каждой
+task. Повторно использовать уже прочитанные AGENTS/conventions/plan/analysis,
+если их exact content fingerprints не изменились; перечитывать только changed
+artifact и непосредственно нужные task inputs. Новая сессия сама по себе не
+инвалидирует доказанно неизменный контекст.
+
 **2. Выбери задачу.**
-Вызови `tasks-mcp.list_open_tasks(repo_path)`. Если задач нет — сообщи
-пользователю и остановись. Если id указан — выбери exact definition и перейди к
-pre-claim проверке 2.5. Если нет — покажи список и спроси, какую брать. Не
-выбирай сам.
+Если `harness-productionize` передал exact `task_id` из свежего merged lifecycle
+snapshot, не вызывать повторно `list_open_tasks`, не показывать список и не
+просить выбрать задачу: оркестратор уже выполнил scheduling. Использовать
+переданную definition/approval context; если передан только id, сразу claim и
+сверить возвращённую definition до первой правки.
+
+В standalone-режиме вызвать `tasks-mcp.list_open_tasks(repo_path)`. Если задач
+нет — сообщить пользователю и остановиться. Если id указан — выбрать exact
+definition и перейти к pre-claim проверке 2.5. Если id не указан — показать
+список и спросить, какую брать.
 
 До claim проверь возвращённый `queue_storage_mode`: claim/submit не должны
 оставлять tracked `tasks.json` в feature-diff. Для `out_of_band` продолжай;
@@ -43,8 +55,9 @@ include_all=true)` только для диагностики. `blocked`, `in_pr
 задачу не claim-ить повторно, даже если текущая реализация tasks-mcp технически
 это допускает для `blocked`.
 
-Если task содержит `depends_on`, получить merged lifecycle через
-`list_open_tasks(..., include_all=true)` и проверить, что каждый указанный id
+Если task содержит `depends_on`, использовать переданный оркестратором fresh
+merged lifecycle snapshot; только в standalone-режиме получить его через
+`list_open_tasks(..., include_all=true)`. Проверить, что каждый указанный id
 имеет status `done`. Пока хотя бы один prerequisite не завершён, task не
 claim-ить; показать только точный список незавершённых зависимостей. Не выводить
 dependency из порядка массива или свободного текста notes.
@@ -61,8 +74,9 @@ Task обязана иметь `stage: A` и `plan_id`. По merged lifecycle д
 автоматически входит в этот gate, даже если отсутствует в старом `depends_on`.
 
 **2.5. Проверь route, mode и human gate ДО claim.**
-Используй полную task definition, уже возвращённую `list_open_tasks`; не жди
-ответа `claim_task`, чтобы впервые увидеть route. Примени allowlist из шага 3.5.
+Используй полную task definition из standalone `list_open_tasks` либо из
+orchestrator context; если productionize передал только exact id, claim может
+вернуть definition, но до её проверки нельзя менять файлы. Примени allowlist из шага 3.5.
 Для Stage-B routes до claim прочитай
 `docs/harness/pre-industrialization-spec.md` и matching-секцию
 `docs/harness/data-boundaries.md`, если она уже существует. Для parity/live
@@ -73,7 +87,7 @@ Task обязана иметь `stage: A` и `plan_id`. По merged lifecycle д
 | `harness-eval:prototype-parity` | актуальные prototype/target revisions, `prototype-contract.json` и возможность собрать sanitized/synthetic input manifest; live authority нужна только при внешнем вызове |
 | `harness-production-readiness:contract` | найденная boundary зарегистрирована; задача ограничена получением contract facts или подготовкой design proposal |
 | `harness-production-readiness:adapter` | matching-секция `data-boundaries.md` не ниже `MAPPED`: exact operation/revision/auth/mapping известны, material conflicts отсутствуют |
-| остальные Stage-B readiness modes | подтверждённый план задачи и применимое разрешение для protected scope |
+| остальные Stage-B readiness modes | авторизованный план задачи и применимое разрешение для protected scope |
 | `harness-eval:live` | отдельное текущее approval/policy/task evidence с exact environment/data/call/side-effect scope |
 | `harness-production-readiness:stand` с external call/side effect | дополнительно то же текущее live authorization |
 | `harness-golden` | released input/truth sources, oracle probe и data policy из `golden-spec.yaml` |
@@ -85,6 +99,14 @@ Task обязана иметь `stage: A` и `plan_id`. По merged lifecycle д
 matching-секция или несовпадение разрешённого scope с задачей → STOP до claim и
 contract/design/authorization handoff. Specialist затем смыслово сверяет
 официальный contract/revision и mapping.
+
+Авторизованный applicability/capability plan вместе с recorded approvals
+покрывает все перечисленные в нём safe offline dependency и protected-path
+изменения. Authorization может происходить из исходного автоматического
+safe-offline запроса либо из одного последующего подтверждения плана.
+Не запрашивать повторное approval на claim, branch, edit, verify, commit или
+submit внутри этого exact scope. Новый checkpoint нужен только при material
+выходе за scope, конфликте источников либо live/shared-DB/deploy действии.
 
 **3. Claim задачу.**
 Вызови `tasks-mcp.claim_task(repo_path, task_id)` только при подтверждённом
@@ -148,18 +170,24 @@ title, notes, файлов или прежнего имени retired skill. Д�
 
 Если видишь модули, похожие на нужные, но AGENTS.md помечает их как deprecated или о них ничего не сказано — спроси пользователя что активно. Не угадывай.
 
-До первой правки классифицируй ровно один слой задачи: source/business contract,
-config/dependency, bundle, DB/migrations, process/wiring, external boundary,
-provider или deployment. Сними baseline: `git diff/status`, contract verifier,
-`make verify`, применимый golden и точные counts. Pre-existing failure не чинить
-«заодно»; оформить отдельный blocker/task.
+До первой правки зафиксируй одну observable capability/foundation и её
+verification boundary. Связанный каскад нескольких слоёв внутри этой capability
+не дробить, но unrelated capability не добавлять. Сними минимальный baseline
+уровня `task.verification_level`: `git diff/status`, применимый contract/golden и
+точные counts. Не запускать `make verify` или build как универсальный baseline
+для scoped/capability task. Pre-existing failure не чинить «заодно»; оформить
+отдельный blocker/task.
 
 Если golden/docs/real payload/код reference расходятся, перечисли версии и
 provenance, назначь decision owner и останови затронутую boundary. Не выбирать
 источник по удобству.
 
-**6. Если нужны новые зависимости — спроси.**
-Добавление пакетов в `pyproject.toml`/`requirements.txt`/`package.json` требует approval. Опиши пользователю что хочешь добавить и зачем, дождись подтверждения. Не ставь молча.
+**6. Если нужны новые зависимости — проверь scope разрешения.**
+Если exact dependency и затрагиваемые manifest/lock paths уже перечислены в
+авторизованном applicability/capability plan или `task.approvals`, отдельное
+подтверждение не требуется: это обычная safe offline реализация approved task.
+Если package/version/major или paths выходят за этот scope, опиши изменение и
+дождись подтверждения. Не расширяй dependency scope молча.
 
 **7. Реализуй минимально.**
 Следуй `task.acceptance` буквально. Не делай больше чем просят, не рефактори
@@ -169,12 +197,33 @@ planning pass, который добавит `open` задачу в `discovered_
 
 Стиль кода, паттерны, naming, обработка ошибок — всё это в `docs/harness/conventions.md`. Следуй ему. Если конвенция не описана — спроси пользователя, не выдумывай свою.
 
-**8. Запусти verify.**
-Сначала scoped lint/tests затронутого, затем команда verify из AGENTS.md/Makefile.
-Если изменены dependencies/lock — clean install + import smoke; entrypoints/
-PyInstaller/resources — build + frozen process smoke; migrations — source/dist
-heads inventory; external boundary — sanitized live/mock contract check. Полный
-format debt отделять от форматирования touched files.
+**8. Запусти verify по `task.verification_level`.**
+
+Использовать пирамиду и не повторять более тяжёлый уровень в каждой task:
+
+- `scoped` — lint/import и тесты затронутого поведения;
+- `capability` — scoped checks + полный тест observable capability contract;
+- `runtime` — capability checks + настоящий production process/DI/lifespan
+  smoke с разрешёнными protocol-faithful stubs;
+- `bundle` — единственный владелец clean install, canonical full verify,
+  build/package inventory и source/frozen process smoke.
+
+Если `verification_level` отсутствует в legacy task, выбрать минимально
+достаточный уровень по acceptance и зафиксировать data-quality finding; новый
+план обязан задавать его явно. В одном `plan_id` clean build выполняет только
+одна task уровня `bundle`; task другого уровня не повышать до bundle из
+осторожности — вернуть несогласованную packaging acceptance планировщику.
+
+Для dependency/lock на уровнях ниже bundle выполнить только необходимый
+resolution/import compatibility check; общий clean install остаётся bundle
+owner. Для migrations — source/dist heads inventory и разрешённая безопасная
+проверка без shared-DB mutation; external boundary — sanitized contract/mock
+check. Полный format debt отделять от touched files.
+
+Зелёное evidence можно переиспользовать только при точном совпадении runtime
+tree fingerprint, dependency/lock fingerprint, execution profile и
+нормализованного списка команд. Branch, commit message или новая сессия не
+являются ключом. Если хотя бы одно поле нельзя доказать, выполнить проверку.
 
 **9. Если verify упал — record_attempt.**
 Вызови `tasks-mcp.record_attempt(repo_path, task_id, command, exit_code, error_output)`. Если ответ `action: "continue"` — попробуй починить и запусти заново. Если ответ `action: "stop"` — это зацикливание, НЕ пытайся снова.
@@ -201,13 +250,16 @@ tasks-mcp.submit_task(repo_path, task_id, evidence={
     "tests_passed": true,
     "branch": "<branch_name>",
     "lint_passed": true,
-    "notes": "<краткое резюме>"
+    "notes": "<краткое резюме; verification level + tree/lock/profile/commands key>",
+    "artifacts": ["<repo-relative canonical report, если он создан>"]
 })
 ```
 
 Если профильный skill создал canonical report/manifest, добавить его
 repo-relative path в необязательный `evidence.artifacts`; для `harness-golden`
 и `harness-eval` это обязательно.
+`verification_level` и ключ переиспользования записывать в `evidence.notes` и
+подтверждать указанным report, не придумывать новые поля Tasks MCP evidence.
 
 Если acceptance задачи требует итогового решения о выпуске, submit допустим
 только после зелёного release/stand report и ответа владельца. Решение
@@ -223,29 +275,41 @@ versioned definition-файлом и не обязан менять category/sta
 `docs/harness/tasks.json`, это runtime/configuration failure: не коммить второй
 queue commit в feature branch, зафиксировать blocker владельцу tasks-mcp.
 
-**13. Финальный отчёт.**
-Кратко пользователю: какая задача закрыта, какие файлы изменены, какой коммит, какая ветка. Напомни что merge в защищённую ветку делает человек, не агент.
+**13. Заверши task.**
+В standalone-режиме кратко сообщить пользователю: какая задача закрыта, какие
+файлы изменены, какой commit и ветка. В orchestrated `harness-productionize`
+режиме после обычного успешного submit сразу вернуть control с compact machine
+summary и перейти к следующей dependency-ready task: не создавать human
+checkpoint, не ждать подтверждения commit/submit и не печатать промежуточный
+handoff. Остановиться только при выходе за approved scope, material conflict,
+live/shared-DB/deploy действии или действительно недостающем owner decision.
 
 ## Хард-лимиты
 
 - НЕ работать в защищённых ветках (см. AGENTS.md — обычно main/master/develop/release/*) — только в собственной ветке задачи.
 - НЕ создавать и не submit'ить ветку с префиксом, отличным от `feature/`.
 - НЕ помечать задачу done без вызова `submit_task` с валидным evidence.
-- НЕ добавлять зависимости без подтверждения пользователя.
+- НЕ добавлять зависимости вне exact approved plan/task scope без подтверждения;
+  уже approved safe offline dependency change повторно не подтверждать.
 - НЕ продолжать после `record_attempt → stop` — это зацикливание, нужен человек.
-- НЕ менять CI/CD, миграции БД, файлы билда без явного approval пользователя
-  в текущей сессии либо заранее записанного task approval с точным path/scope,
-  owner и provenance. `files_hint`/acceptance сами по себе не approval.
+- НЕ менять CI/CD, миграции БД, файлы билда без исходной safe-offline
+  authorization либо заранее записанного task approval с точным path/scope,
+  owner и provenance. Миграционный side effect, shared DB и deploy execution
+  всегда требуют отдельного текущего решения. `files_hint`/acceptance сами по
+  себе не authorization.
 - НЕ выдумывать конвенции — если их нет в `docs/harness/`, спроси пользователя.
 - До правки снять scoped baseline внутри текущей задачи и не выдавать
   pre-existing failure за регрессию. Красный baseline блокирует задачу только
   если из-за него невозможно проверить её acceptance; иначе сохранить finding
   отдельно и продолжить в подтверждённом scope.
-- НЕ смешивать несколько runtime layers в одной правке; новый лог после фикса
-  классифицировать как следующий слой.
+- НЕ смешивать несвязанные capabilities. Несколько технических слоёв одного
+  capability-slice (prompts/schemas/helpers/interface/DI/tests) держать вместе;
+  file/layer count не является причиной дробления.
 - НЕ обновлять golden expected вслед за падением текущей задачи без отдельного
   approved behavior-change решения и provenance.
-- НЕ выбирать задачу самостоятельно, если пользователь не указал какую.
+- НЕ выбирать задачу самостоятельно в standalone-режиме. В orchestrated режиме
+  исполнять exact task_id, выбранный `harness-productionize`, без повторного
+  list/show/select checkpoint.
 - НЕ выполнять задачу с `use_skill` или `ported_from` обычным путём —
   переключиться на указанный (или `harness-prototype-port` по умолчанию) скилл.
   Дефолтный `harness-work-session` не гарантирует сохранение логики прототипа.

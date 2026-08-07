@@ -70,6 +70,9 @@ description: >
 - Каждая задача переноса: `use_skill: harness-prototype-port` + `ported_from` + `files_hint` в слот шаблона.
 - Acceptance ссылается на конкретные функции/секции из prototype-analysis.md.
 - Acceptance явно содержит «сохранить логику прототипа точно».
+- Каждая task получает `verification_level`: `scoped`, `capability`, `runtime`
+  или `bundle`. Уровень задаёт самую тяжёлую обязательную проверку этой task, а
+  не повод повторить все предыдущие уровни.
 
 ## Workflow
 
@@ -78,20 +81,24 @@ description: >
    install/test/build только ради создания плана. Фактически найденные template
    identity, dependency, install или import gaps оформи обычными
    подготовительными задачами перед contract baseline; их проверки запиши в
-   acceptance этих задач.
+   acceptance одной связной preparation task. Не создавать отдельную задачу на
+   каждый identity/import/install symptom; они принадлежат одному bootstrap
+   capability, если имеют общий результат и verification boundary.
 
 1. **Прочитай `prototype-analysis.md` и `ds-precheck.md` целиком.** Выдели:
    schemas, LLM-вызовы,
    core workflow, helpers, entrypoints, File IO, существующие внешние
-   интеграции, отсутствующие будущие boundaries и конфигурацию. Перенеси
-   Ф-находки в соответствующие port-задачи. Для П-находки хранить exact решение,
+   интеграции, отсутствующие будущие boundaries и конфигурацию. Ф-находки
+   включи acceptance-пунктами в соответствующие owning slices; одна
+   Ф-находка никогда не является самостоятельной задачей. Для П-находки хранить exact решение,
    owner/date/provenance: `preserve` входит в acceptance owning parity-slice;
    `change` только записывается как deferred post-parity handoff и не получает
    `harness-prototype-port`. Решение `preserve`/`change` копировать в
    `task.approvals`; при `pending` ставить owning task `status: blocked` и точно
    описывать недостающее решение в notes, не оставлять её claimable.
    Общее подтверждение плана не является approval изменения поведения.
-   О-находки — в backlog.
+   О-находки оставь в cleanup/optimization ledger `ds-precheck.md`; не создавай
+   по ним Stage-A или backlog tasks до отдельного post-parity planning pass.
 
 2. **Построй capability graph и parity-slices.** Сначала выдели общую foundation
    (contract, действительно общие schemas/state, config/providers и shared
@@ -105,6 +112,11 @@ description: >
    capability — перенести вместе с ней. Общий большой prompt bundle допустимо
    вынести в одну resource-задачу с manifest + SHA-256 проверкой, но не в серию
    задач без самостоятельно работающего результата.
+
+   Leaf helper не требует собственного теста и не создаёт test-only slice.
+   Проверяй helper через наблюдаемую capability boundary; отдельный unit test
+   нужен только для самостоятельного контракта или существенной ветвящейся
+   failure semantics.
 
    **Замапь каждый slice в КАНОНИЧЕСКИЕ слоты развёрнутого template**. Для каждого
    `files_hint` укажи provenance: точную секцию `project_structure.md` или path в
@@ -157,7 +169,21 @@ description: >
    Transport mapping (headers, aliases, dates, absent/null/empty) тестировать на
    boundary отдельно от frozen business output.
 
-4. **Выполни обязательный merge-pass.** Объедини соседние задачи, если у одной
+4. **Назначь verification pyramid и выполни обязательный merge-pass.** Для
+   каждой задачи выбери один максимальный уровень:
+
+   - `scoped` — contract/foundation или локальная правка без самостоятельного
+     end-to-end поведения: changed-area lint/import/tests;
+   - `capability` — законченный parity-slice: scoped checks + тест его
+     наблюдаемого входа, state/output и fallback;
+   - `runtime` — настоящий process/DI/lifespan gate; на этапе A использовать
+     только если process runtime уже входит в наблюдаемый prototype contract;
+   - `bundle` — clean install/build/frozen smoke. Если bundle применим на этапе
+     A, назначить ровно одну уже существующую финальную gate-task его владельцем;
+     остальные задачи не запускают build. Не создавать отдельную пустую task
+     только ради ownership. Если Stage A bundle не затрагивает, владельца нет.
+
+   Объедини соседние задачи, если у одной
    нет собственного наблюдаемого результата, отдельной проверки/rollback или
    собственного approval scope. Особенно объединяй prompt-only, fixture-only,
    test-only и helper-only задачи с consuming capability.
@@ -170,16 +196,21 @@ description: >
    Для medium prototype нормальный ориентир — примерно 8–18 задач этапа A,
    включая optional preparation, contract и финальную parity verification.
    Размер определяй по числу observable capabilities и boundaries, а не по
-   числу файлов или ресурсов. Это диагностический диапазон, не цель и не hard
-   cap. Если после merge-pass осталось больше 20 задач, приложи exception table
-   для КАЖДОЙ задачи плана: независимый result, verification,
-   dependency/approval boundary и причина, почему merge с ближайшим consumer
-   ухудшит безопасность. Без такого обоснования объединяй.
+   числу файлов или ресурсов. **Больше 20 Stage-A tasks — hard STOP:** такой план
+   не показывать как готовый и не записывать в очередь. Повтори capability
+   grouping/merge-pass; если независимых capabilities действительно больше,
+   верни пользователю только карту превышения и предложи разделить исходный
+   scope на отдельные опромышливания. Дополнительное обоснование не отменяет лимит.
 
-5. **Покажи план пользователю ПЕРЕД записью.** Список задач с title, цельным
+5. **Покажи план перед записью.** Список не более чем из 20 задач с title, цельным
    проверяемым результатом, ported_from и целевыми slots. Покажи coverage gaps,
-   итог merge-pass и exception table при числе задач >20. Дождись подтверждения
-   или корректировки. Не записывай молча.
+   итог merge-pass, verification levels и единственного bundle owner, если он
+   применим. Если исходный запрос `harness-productionize` уже разрешает
+   автоматический safe-offline прогон в target, показ является информационным:
+   зафиксируй это разрешение как provenance плана, запиши очередь и продолжай
+   без отдельного checkpoint. Подтверждение нужно только при class-П решении,
+   конфликте источников/слотов, выходе за заданный scope или если такой общей
+   авторизации не было. Не записывай план без показа и durable summary.
 
 6. **Запиши в `docs/harness/tasks.json`** в `current_sprint` (или `backlog`,
    если пользователь так просит). Существующие задачи не затирай.
@@ -204,6 +235,7 @@ description: >
   "plan_id": "prototype-a-<12-hex-from-exact-prototype-revision>",
   "stage": "A",
   "use_skill": "harness-prototype-port",
+  "verification_level": "capability",
   "verification_skills": ["harness-governance-gates:prototype-contract"],
   "depends_on": ["<only real prerequisite task IDs>"],
   "files_hint": [
@@ -244,6 +276,7 @@ description: >
   "stage": "A",
   "use_skill": "harness-eval",
   "skill_mode": "prototype-parity",
+  "verification_level": "capability",
   "depends_on": ["<all preparation/contract/implementation task IDs>"],
   "files_hint": ["docs/harness/evals/prototype-parity.md"],
   "slot_provenance": {
@@ -262,6 +295,9 @@ description: >
 }
 ```
 
+Если именно эта final gate является единственным применимым Stage-A bundle
+owner, заменить `capability` на `bundle`; вторую bundle-task не создавать.
+
 ## Первая port-задача — всегда контракт
 
 ```json
@@ -274,6 +310,7 @@ description: >
   "plan_id": "prototype-a-<same-plan-id>",
   "stage": "A",
   "use_skill": "harness-prototype-port",
+  "verification_level": "scoped",
   "depends_on": ["<preparation task IDs, if any>"],
   "files_hint": ["docs/harness/prototype-contract.json", "docs/harness/prototype-analysis.md"],
   "slot_provenance": {
@@ -304,9 +341,9 @@ description: >
 - НЕ создавать prompt-only/test-only/fixture-only/helper-only задачи, если у них
   нет отдельного потребителя, контракта и проверки.
 - НЕ показывать план до coverage audit и обязательного merge-pass.
-- НЕ оставлять больше 20 задач без exception table для КАЖДОЙ задачи плана с
-  независимым result, verification, dependency/approval boundary и причиной
-  невозможности merge с ближайшим consumer.
+- НЕ показывать как готовый и НЕ записывать Stage-A plan больше чем из 20 tasks.
+  Human approval не отменяет этот предел; сначала regroup/merge или разделение
+  scope на отдельные опромышливания.
 - НЕ ставить суффиксы-буквы в id (branch-regex tasks-mcp их отвергает).
 - НЕ записывать tasks.json без показа плана пользователю.
 - НЕ затирать существующие задачи в tasks.json.
@@ -336,10 +373,11 @@ description: >
 
 ## Output
 
-- План задач показан и подтверждён (с целевыми слотами);
+- План задач показан; подтверждение либо исходная safe-offline авторизация
+  записаны с provenance (с целевыми слотами);
 - `docs/harness/tasks.json` заполнен (current_sprint);
-- Отчёт: число задач, порядок, contract первым, coverage map, merge-pass и карта
-  слотов; для >20 задач — exception table.
+- Отчёт: число задач, порядок, contract первым, coverage map, merge-pass,
+  verification levels, единственный применимый bundle owner и карта слотов.
 
 ## Связь со скиллами
 

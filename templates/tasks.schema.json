@@ -35,19 +35,72 @@
         "type": {"enum": ["feat", "fix", "refactor", "debt", "bug"]},
         "priority": {"enum": ["high", "medium", "low"]},
         "status": {"enum": ["open", "in_progress", "blocked", "done"]},
+        "plan_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+        "stage": {"enum": ["A", "B", "C", "general"]},
+        "phase": {
+          "type": "string",
+          "pattern": "^(A[0-9]+|B[0-4]|C[1-3])$",
+          "description": "Execution wave inside the stage, for example A2 or B3."
+        },
+        "ticket": {"type": "string", "minLength": 1},
         "use_skill": {"type": "string", "pattern": "^harness-[a-z0-9-]+$"},
         "skill_mode": {"type": "string"},
+        "verification_level": {
+          "enum": ["scoped", "capability", "runtime", "bundle"],
+          "description": "Maximum verification tier owned by this task. At most one task per plan_id may own bundle when bundle verification is applicable."
+        },
+        "verification_skills": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^harness-[a-z0-9-]+(?::[a-z0-9-]+)?$"}
+        },
         "acceptance_criteria": {
           "type": "array",
           "minItems": 1,
           "items": {"type": "string", "minLength": 1}
         },
         "files_hint": {"type": "array", "items": {"type": "string"}},
+        "slot_provenance": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Provenance values may be strings or nested evidence objects.",
+          "additionalProperties": true
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z]+-[0-9]+$"}
+        },
         "ported_from": {"type": "array", "items": {"type": "string"}},
         "approvals": {"type": "array"},
         "notes": {"type": "string"}
       },
       "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {"use_skill": {"const": "harness-prototype-port"}},
+                "required": ["use_skill"]
+              },
+              {
+                "properties": {
+                  "use_skill": {"const": "harness-eval"},
+                  "skill_mode": {"const": "prototype-parity"}
+                },
+                "required": ["use_skill", "skill_mode"]
+              }
+            ]
+          },
+          "then": {
+            "required": ["plan_id", "stage", "verification_level"],
+            "properties": {"stage": {"const": "A"}}
+          }
+        },
+        {
+          "if": {"required": ["files_hint"]},
+          "then": {"required": ["slot_provenance"]}
+        },
         {
           "if": {
             "properties": {"use_skill": {"const": "harness-eval"}},
@@ -67,6 +120,67 @@
           },
           "then": {
             "not": {"required": ["skill_mode"]}
+          }
+        },
+        {
+          "if": {
+            "properties": {"use_skill": {"const": "harness-production-readiness"}},
+            "required": ["use_skill"]
+          },
+          "then": {
+            "required": ["plan_id", "stage", "phase", "verification_level", "skill_mode"],
+            "properties": {
+              "stage": {"enum": ["B", "C"]},
+              "phase": {"pattern": "^[BC][0-9]+$"},
+              "skill_mode": {
+                "enum": ["dependency", "config", "contract", "adapter", "process", "db", "observability", "deploy", "runbook", "stand"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"stage": {"enum": ["B", "C"]}},
+            "required": ["stage"]
+          },
+          "then": {
+            "required": ["plan_id", "phase", "use_skill", "verification_level"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "use_skill": {"const": "harness-eval"},
+              "skill_mode": {"const": "live"}
+            },
+            "required": ["use_skill", "skill_mode"]
+          },
+          "then": {
+            "required": ["plan_id", "stage", "phase", "verification_level"],
+            "properties": {
+              "stage": {"const": "C"},
+              "phase": {"const": "C2"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"phase": {"pattern": "^B[0-9]+$"}},
+            "required": ["phase"]
+          },
+          "then": {
+            "required": ["stage"],
+            "properties": {"stage": {"const": "B"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"phase": {"pattern": "^C[0-9]+$"}},
+            "required": ["phase"]
+          },
+          "then": {
+            "required": ["stage"],
+            "properties": {"stage": {"const": "C"}}
           }
         }
       ],

@@ -46,6 +46,17 @@ AsyncAPI/DDL, team template и runtime evidence. Неизвестное не з�
 - Идемпотентность и порядок: `<из контракта или НЕИЗВЕСТНО>`
 - Успешное завершение и обязательный callback: `<...>`
 
+### Runtime lifecycle
+
+| SDK constraint / lock | Transport | Local / cluster access | Object scope | Active session scope | Create / close | Startup / readiness critical | Retry owner | Failure boundary | Доказательство |
+|---|---|---|---|---|---|---|---|---|---|
+| `<manifest + locked version>` | `<HTTP / SSE / queue / ...>` | `<port-forward/proxy/VPN / service address>` | `<APP / request / task>` | `<request / task / process>` | `<events>` | `<yes/no + source>` | `<SDK/adapter/orchestrator>` | `<request/task/process>` | `<path/revision/test>` |
+
+`APP` scope допустим для side-effect-free config/factory/client object. Активный
+session/stream/handshake открывать на request/task, если официальный контракт не
+делает boundary обязательной для startup. Lower-bound-only dependency не
+подтверждает совместимость со следующим major.
+
 ### Проверки
 
 | Проверка | Результат и ссылка |
@@ -54,6 +65,8 @@ AsyncAPI/DDL, team template и runtime evidence. Неизвестное не з�
 | Схема и обязательные поля | `<...>` |
 | Mapping, включая null/empty/error | `<...>` |
 | Contract test | `<...>` |
+| Protocol/lifecycle test через production client + DI | `<...>` |
+| Real-app offline startup/request/task/close | `<...>` |
 | Live-проверка, если отдельно разрешена | `<... или НЕ ВЫПОЛНЯЛАСЬ>` |
 
 Adapter можно реализовать при состоянии не ниже `MAPPED`, если известны точная

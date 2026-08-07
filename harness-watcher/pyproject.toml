@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harness-watcher"
+version = "0.2.0"
+description = "Local watcher that bridges a trusted remote exec-request queue to a team workstation."
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+harness-watcher = "watcher:main"
+
+[tool.setuptools]
+py-modules = ["watcher"]
+
+[tool.setuptools.packages.find]
+include = ["lib*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

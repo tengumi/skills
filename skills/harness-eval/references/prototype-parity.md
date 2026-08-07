@@ -49,8 +49,10 @@ boundary change; смысл входа, результата, ошибок, term
 Быстрый network-free deterministic contract regression на sanitized fixtures
 может входить в default `make verify`. Полный quality/LLM прогон выполнять
 отдельно. Mocked parity не доказывает clean install, build, registry/DI wiring,
-frozen resources или production boundary — для этого нужны соответствующие
-runtime gates либо `skill_mode=live`.
+frozen resources или production boundary. Network-free real-app lifecycle,
+production DI и protocol-faithful transport stub проверяет
+`harness-production-readiness:process`; реальную разрешённую систему проверяет
+отдельный `skill_mode=live`.
 
 Для deterministic logic требовать exact или явное field-level equality. Для
 LLM использовать несколько сигналов: success/error, required fields, coverage,

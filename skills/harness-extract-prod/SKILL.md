@@ -92,6 +92,14 @@ configuration.md, conventions.md, dev-setup.md, project_structure.md, rules.md) 
 14. **Common-library reuse**
 - какие health/logging/OTel/app-init реализации предоставляет общая библиотека;
   локальный дубль не создавать до проверки common.
+15. **External client lifecycle**
+- для каждой production boundary: package/SDK, manifest constraint и locked
+  version, transport, local/cluster access;
+- scope side-effect-free client/factory и отдельно scope активного
+  connection/session/stream; create/close events;
+- startup/readiness criticality, failure boundary, retry owner и provenance.
+- `APP` scope объекта не означает разрешение открывать сеть при import/startup:
+  eager session/handshake допустимы только по явному team contract.
 
 ## Workflow
 
@@ -159,6 +167,11 @@ configuration.md, conventions.md, dev-setup.md, project_structure.md, rules.md) 
 ## COMMON REUSE
 - health/logging/OTel/app-init: <...>
 
+## EXTERNAL CLIENT LIFECYCLE
+| boundary | package/SDK | manifest constraint | locked version | transport | local access | cluster access | object scope | connection/session scope | create event | close event | startup-critical | readiness dependency | retry owner | failure boundary | provenance |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| <...> | <...> | <...> | <...> | <...> | <...> | <...> | <...> | <...> | <...> | <...> | <yes/no + source> | <...> | <...> | <request/task/process> | <path/revision> |
+
 ## SOURCE CONFLICTS
 - <aspect>: template=<...>; neighbour=<...>; release=<...>; decision=<OPEN/...>
 
@@ -177,6 +190,9 @@ configuration.md, conventions.md, dev-setup.md, project_structure.md, rules.md) 
   «подставить своё», не зашивать эталонные.
 - НЕ копировать dependency list release целиком: сравнивать и сливать с
   агент-специфичными imports; shared-package pins менять только отдельным решением.
+- Не считать lower-bound-only constraint (`pkg>=X`) доказательством совместимости
+  со следующим major. Зафиксировать locked version и совместимый диапазон либо
+  оставить compatibility gap.
 
 ## Output
 

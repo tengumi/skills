@@ -86,6 +86,8 @@ cat <source_path>/README.md 2>/dev/null
 - Format: <notebooks | python | mixed | script>
 - Files analyzed: <количество и список>
 - Last commit / modification date: <если можно определить>
+- Exact source snapshot: <git revision либо deterministic content fingerprint
+  файлов из inventory; не только mtime>
 
 ## Назначение
 
@@ -110,11 +112,22 @@ cat <source_path>/README.md 2>/dev/null
 
 <простая схема: вход → обработка → выход. Используй ASCII или маркированный список.>
 
+## Наблюдаемая capability/use map
+
+Это не план задач, а группировка фактов по наблюдаемому результату. Для каждого
+entrypoint/capability перечислить вход, результат/terminal state, вызываемые
+функции, prompts, schemas/state, boundaries и shared foundations. Один helper
+может быть shared; не превращать каждый helper или prompt в capability.
+
+| Capability ID | Entrypoint/trigger | Observable result | Functions | Prompts/schemas | Boundaries | Shared dependencies |
+|---|---|---|---|---|---|---|
+| C-01 | ... | ... | F-... | P-... / S-... | B-... | ... |
+
 ## Функции — детальная карта
 
-Для каждой функции:
+Для каждой функции назначь стабильный inventory ID (`F-001`, `F-002`, ...):
 
-### `function_name(args) -> return_type`
+### F-NNN — `function_name(args) -> return_type`
 
 - **Location**: `<file>:<line>` или `<notebook>:cell N`
 - **Purpose**: одна строка что делает
@@ -128,7 +141,7 @@ cat <source_path>/README.md 2>/dev/null
 
 Каждый вызов LLM документируется отдельно:
 
-### LLM Call N: <имя или контекст>
+### LLM-NNN — <имя или контекст>
 
 - **Provider**: точное имя из кода/effective config
 - **Model**: точное имя из кода/effective config
@@ -155,7 +168,7 @@ cat <source_path>/README.md 2>/dev/null
 
 Для каждой структуры данных (pydantic, dict, dataclass):
 
-### `SchemaName`
+### S-NNN — `SchemaName`
 
 - **Defined in**: где в коде
 - **Fields**: точный список всех полей с типами
@@ -192,6 +205,12 @@ cat <source_path>/README.md 2>/dev/null
 LLM, составить таблицу только по реально существующим внешним границам:
 
 | Boundary | Protocol | Exact URL/path/tool/topic | Method | Auth/headers | Request/path/body | Response shape | Source branch | Preconditions/side effects | Error/terminal semantics | Evidence |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+Для каждой наблюдаемой external boundary отдельно зафиксировать lifecycle, не
+смешивая side-effect-free object с активным соединением:
+
+| Package/SDK | Manifest constraint | Locked version | Local/cluster access | Object scope | Session/stream scope | Create/close event | Startup/readiness critical | Retry owner | Failure boundary | Evidence |
 |---|---|---|---|---|---|---|---|---|---|---|
 
 Evidence — точный файл/строка, version/hash OpenAPI, sanitized real sample или
@@ -268,6 +287,16 @@ method, route и headers писать `N/A — not present in prototype`, не `
    planning pass мог перенести факт в `data-boundaries.md` и предложить блок
    решения человеку. Будущий endpoint не записывается как существующий
    prototype contract
+9. **Capability/use map покрывает inventory**: каждая функция, prompt, schema,
+   LLM-вызов и boundary принадлежит наблюдаемой capability либо явно помечена
+   `shared`/`inactive`. Это coverage для будущего grouping, не список tasks
+10. **Source snapshot воспроизводим**: записан exact revision или content
+    fingerprint. Пока он не изменился, downstream skills могут повторно
+    использовать analysis; после изменения source analysis считается stale
+11. **Для observed external client разделены object и active-session lifecycle**:
+    constraint/lock, access, create/close, startup criticality, retry owner и
+    failure boundary имеют evidence; `APP` scope объекта не переносится молча на
+    активное сетевое соединение
 
 Запусти простую проверку:
 
@@ -277,7 +306,7 @@ grep -c "^def \|^    def " <source>/**/*.py 2>/dev/null
 # или для notebooks — посчитай вручную в основных cells
 
 # Сколько функций в analysis
-grep -c "^### \`" docs/harness/prototype-analysis.md
+grep -c "^### F-" docs/harness/prototype-analysis.md
 ```
 
 Числа должны быть сопоставимы. Если в источнике 50 функций а в анализе 10 — что-то пропущено.
@@ -327,8 +356,9 @@ precheck.
 
 - **НЕ редактировать сам прототип.** Только чтение.
 - **НЕ комментировать качество кода.** “Этот код плохо написан” — не относится к делу. Документируй что есть.
-- **НЕ предлагать улучшения.** Анализ — нейтральная инвентаризация; улучшения
-  идут в harness-ds-precheck/backlog и никогда не смешиваются с port-задачей.
+- **НЕ предлагать улучшения.** Анализ — нейтральная инвентаризация; кандидаты
+  идут в cleanup/optimization ledger `harness-ds-precheck` и только после parity
+  могут попасть в backlog отдельным planning pass. С port-задачей их не смешивать.
 - **НЕ догадывать пропущенное.** Лучше пометить как open question.
 - **НЕ дописывать во входную spec догадки или наблюдаемые факты.** Она хранит
   предоставленные production-реквизиты; факты анализа принадлежат

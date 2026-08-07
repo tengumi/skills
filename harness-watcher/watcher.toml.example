@@ -1,0 +1,105 @@
+# harness-watcher configuration
+# Скопируй в ~/.config/harness-watcher/config.toml и заполни своими значениями.
+
+[remote]
+# Удалённая рабочая машина — подключение с локального executor-хоста.
+# Не коммитьте реальные host aliases, логины и ключи в командный шаблон.
+ssh_host = "executor@example.internal"
+ssh_port = 22
+ssh_key = "~/.ssh/team_exec"
+
+# Secure default: fail if the remote host key is unknown or has changed.
+strict_host_key_checking = true
+
+# Optional dedicated known_hosts file. If omitted/empty, OpenSSH uses its defaults.
+# The configured file must already exist; obtain and verify its host key out of band.
+user_known_hosts_file = ""
+
+# Setting strict_host_key_checking=false is a high-risk, test-only opt-out.
+# Do not use it for shared or production execution.
+
+# Путь к удалённому репозиторию с docs/harness/exec-requests/.
+# Получите реальное значение у владельца окружения — не угадывайте deploy path.
+remote_repo_root = "/srv/team/service"
+
+[local]
+# Выделенное одноразовое зеркало на executor-хосте.
+# При pull tar-sync эта папка очищается и создаётся заново.
+local_repo_root = "/work/harness-mirrors/service"
+
+[poller]
+# Как часто опрашивать удалённую очередь (секунды)
+poll_interval_seconds = 3
+
+# Максимальное время одной exec-сессии (секунды)
+default_timeout_seconds = 600
+
+# Сколько последних строк stdout/stderr включать в отчёт
+stdout_max_chars = 8000
+stderr_max_chars = 4000
+
+[executor]
+# Если true — watcher делает tar-sync с удалённой машины перед каждым exec.
+# Если false — состояние local_repo_root поддерживает владелец окружения.
+sync_before_exec = true
+
+# Если true — tar-sync назад после exec (изменяет удалённую копию).
+sync_after_exec = false
+
+# Bash-команды, которые выполняются ПЕРЕД каждой командой в request.
+# Используй для активации venv, экспорта PATH или установки переменных окружения.
+# ВАЖНО: venv должен лежать ВНЕ local_repo_root, иначе при tar-sync он затрётся.
+#
+# Примеры:
+#   pre_exec_hook = "source /work/harness-envs/service/bin/activate"
+#   pre_exec_hook = "export PATH=$HOME/.local/bin:$PATH"
+#   pre_exec_hook = "source /work/harness-envs/service/bin/activate && export PYTHONPATH=src"
+#
+# По умолчанию пусто — никаких префиксов перед командой.
+pre_exec_hook = ""
+
+[paths]
+audit_log_path = "~/.config/harness-watcher/audit.log"
+state_path = "~/.config/harness-watcher/state.json"
+
+[filter]
+# Фильтрация шума из stdout перед записью в exec-report (тот что читает Codex).
+# Не влияет на verbose окно (-v) — там полный поток.
+# stderr и failed commands НЕ фильтруются — полный контекст важен для отладки.
+
+# Включить фильтр (default: true)
+enabled = true
+
+# Убирать ANSI escape codes (цвета терминала) — нужно почти всегда
+strip_ansi = true
+
+# Применять встроенный список паттернов:
+# - известный шум managed-workstation pre-exec hooks
+# - uv progress (Downloading, Building, Installed)
+# - uv VIRTUAL_ENV warnings
+strip_defaults = true
+
+# Дополнительные regex-паттерны для локальной специфики проекта.
+# Не добавляйте сюда имена реальных сервисов в командном шаблоне.
+extra_patterns = [
+    # "^MYAPP-DEBUG:",
+    # "fontTools.*INFO",
+]
+
+[rsync]
+# Legacy-имя секции сохранено для совместимости. Текущий poller применяет эти
+# exclude-паттерны к tar-sync.
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".pytest_cache",
+    ".ruff_cache",
+    "*.pyc",
+    ".DS_Store",
+    "dist",
+    "build",
+    "*.egg-info",
+]

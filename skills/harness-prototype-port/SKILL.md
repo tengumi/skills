@@ -26,8 +26,9 @@ policy берутся из наблюдаемого контракта, а не 
 
 - Задача `tasks.json` явно говорит “перенести X из прототипа”
 - `docs/harness/prototype-analysis.md` существует и описывает источник
-- `docs/harness/ds-precheck.md` прошёл human checkpoint, а задача создана
-  `harness-prototype-plan` и несёт `ported_from`, `files_hint`, `use_skill`
+- `docs/harness/ds-precheck.md` завершён; для реально найденных П-находок
+  записаны решения, а при их отсутствии отдельный checkpoint не нужен. Задача
+  создана `harness-prototype-plan` и несёт `ported_from`, `files_hint`, `use_skill`
 - Цель — production-готовность, не функциональное улучшение
 
 **НЕ применять:**
@@ -43,10 +44,12 @@ policy берутся из наблюдаемого контракта, а не 
 Обязательно прочитать перед началом:
 
 1. **`docs/harness/prototype-analysis.md`** — спецификация. Если её нет — STOP. Запустить `harness-source-analysis` сначала.
-2. **`docs/harness/ds-precheck.md` + human decisions** — если их нет, STOP:
-   выполнить `harness-ds-precheck`, checkpoint и `harness-prototype-plan`.
+2. **`docs/harness/ds-precheck.md` + решения по фактическим П-находкам** — если
+   artifact отсутствует, выполнить `harness-ds-precheck`; если есть pending П,
+   блокировать только owning slice и продолжить независимые задачи. При нуле
+   П-находок human checkpoint не создавать.
 3. **Исходный прототип** — не доверяй только analysis, открой оригинал
-4. **Текущая задача в `tasks.json`** — она должна быть из подтверждённого plan и
+4. **Текущая задача в `tasks.json`** — она должна быть из авторизованного plan и
    содержать `ported_from`, `files_hint`, `use_skill: harness-prototype-port`.
    Если provenance плана отсутствует — STOP, не превращать ad-hoc task в port.
 5. **Шаблон команды** — репозиторий рядом с прототипом, из которого развёрнута целевая репа. Это источник целевой СТРУКТУРЫ (слотов), НЕ бизнес-логики. Сверять раскладку с ним и с `docs/harness/project_structure.md`.
@@ -93,9 +96,10 @@ prototype parity.
 
 -----
 
-## Шаг 2: построить чек-лист переноса
+## Шаг 2: построить чек-лист capability-slice
 
-Для функций которые переносишь, выпиши из `prototype-analysis.md`:
+Для цельного slice и всех принадлежащих ему inventory items выпиши из
+`prototype-analysis.md`:
 
 ```
 Функция: <name>
@@ -112,12 +116,17 @@ prototype parity.
 □ Для interface change обновлён весь каскад: Protocol/ABC, implementations,
   fakes, DI providers, callers и fixtures
 □ Для observed external boundary exact route/tool, headers, request/response и
-  absent/null/empty/date/enum semantics подтверждены источником
+  absent/null/empty/date/enum semantics подтверждены источником; SDK
+  constraint/lock, object/session scope, create/close, startup criticality,
+  retry owner и failure boundary не изменены молча
 □ Для File IO сохранены format/schema/lifecycle/error semantics; transport
   fields отмечены N/A, а будущий adapter не придуман внутри port-задачи
 ```
 
-Это твой контроль качества. После каждой функции — пройдись по чек-листу.
+Это контроль полноты slice. Пройти его перед изменениями и ещё раз перед
+submit. Не создавать отдельную задачу или тест на каждый leaf helper: helper
+проверяется через observable capability boundary, если у него нет собственного
+контракта или существенной failure semantics.
 
 -----
 
@@ -192,13 +201,24 @@ contracts, orchestration или helpers. Нет подтверждённого �
 
 ## Шаг 5: процесс переноса
 
-Для каждой функции:
+Для каждого capability-slice:
 
-1. **Найти оригинал** в прототипе (по `prototype-analysis.md` есть точная ссылка)
-1. **Прочитать оригинал** глазами, не доверять анализу — анализ может пропускать детали
-1. **Реализовать в production-структуре** в КАНОНИЧЕСКОМ слоте (по `files_hint` / «Целевой раскладке») с соблюдением чек-листа из шага 2
-1. **Написать тест** который проверяет ту же логику что прототип
-1. **В коммите указать** ссылку на оригинал
+1. **Найти все owned items** в прототипе по capability/use map и `ported_from`.
+1. **Прочитать каждый оригинал** глазами, не доверять только analysis.
+1. **Перенести весь каскад вместе**: implementation, prompts/resources,
+   schemas/state, helpers, interface/fakes/DI/callers и fixtures в указанные
+   КАНОНИЧЕСКИЕ слоты.
+1. **Проверить observable boundary**: вход → state/output/terminal/fallback.
+   Не писать test-per-function или test-per-prompt только ради покрытия списка;
+   точечный unit test добавлять лишь для самостоятельного контракта/ветвления.
+1. **Сверить manifest и SHA-256 всех prompts**, полный schema/LLM/retry
+   inventory и interface cascade; эти проверки не ослабляются укрупнением task.
+1. **В evidence указать** все owned source ranges и результат slice.
+
+Следовать `task.verification_level` из подтверждённого плана. `scoped` и
+`capability` задачи не запускают clean install/build/frozen smoke. Если Stage-A
+bundle применим, его выполняет только единственная task с
+`verification_level: bundle`; повторно запускать bundle в каждом slice нельзя.
 
 Для изменения сигнатуры сначала построить interface impact list. Нельзя
 добавить параметр только в production implementation: fake/golden может остаться
@@ -234,6 +254,13 @@ contracts, orchestration или helpers. Нет подтверждённого �
   "commit_sha": "...",
   "tests_passed": true,
   "lint_passed": true,
+    "verification_level": "<scoped|capability|runtime|bundle>",
+    "verification_context": {
+      "tree_fingerprint": "<exact>",
+      "lock_fingerprint": "<exact-or-N/A>",
+      "execution_profile": "<exact>",
+      "commands": ["<normalized ordered commands>"]
+    },
     "contract_diff": "none",
     "ported_from": [
       "<source>:<range>",
@@ -332,15 +359,15 @@ boundary. Существующий endpoint проверяется, а отсу�
 > Вариант A: переносим как есть.  
 > Вариант B: создаём отдельную behavior-change задачу.
 > 
-> По умолчанию выберу A (точная семантика прототипа), если не скажешь иначе.
+> До ответа затронутый slice останется blocked; независимые slices продолжатся.
 
 -----
 
 ## Связь с другими скиллами
 
 - **Перед `harness-prototype-port`**: `harness-source-analysis` →
-  `harness-ds-precheck` + human checkpoint → `harness-prototype-plan`; porter
-  выполняет только полученную task.
+  `harness-ds-precheck` → при наличии П точечный human checkpoint →
+  `harness-prototype-plan`; porter выполняет только полученную task.
 - Целевая структура приходит из шаблона (A2, репо рядом с прототипом) + `project_structure.md`. Порт кладёт код в слоты СРАЗУ, а не оставляет уборке.
 - **`harness-prototype-port` использует**: `harness-request-exec` для verify,
   только если watcher задан AGENTS/policy, direct runtime недоступен или

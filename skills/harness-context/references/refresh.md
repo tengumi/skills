@@ -28,8 +28,10 @@ proposal владельцу, не править документ под тек�
 ## 3. Составить дельта-план
 
 Для каждой auto-owned секции показать точное изменение и источник факта.
-Отдельно перечислить файлы, которые останутся нетронутыми. Дождаться approval
-до записи.
+Отдельно перечислить файлы, которые останутся нетронутыми. Если exact
+auto-owned delta уже входит в записанную `safe_offline_authorization` текущего
+плана/задачи, показ информационный и запись продолжается без нового approval.
+Иначе дождаться одного approval до записи.
 
 Не включать в план `docs/harness/tasks.json`: lifecycle задач ведёт tasks-mcp,
 а новые задачи создают planning-skills.
@@ -46,11 +48,13 @@ auto-owned фрагменты; сохранить порядок, коммент
 После изменения поставить или обновить
 `<!-- harness-updated: YYYY-MM-DD -->` в AGENTS.md.
 
-## 5. Чистый maintenance handoff
+## 5. Чистый handoff
 
-Проверить diff только контекстных файлов, отсутствие секретов и неизменность
-team docs/tasks lifecycle. Оформить это отдельным maintenance handoff, чтобы
-изменения документации не попали в следующую feature/port задачу.
+Проверить diff контекстных файлов, отсутствие секретов и неизменность team
+docs/tasks lifecycle. Standalone refresh оформить отдельным maintenance handoff.
+Если refresh вызван из активной задачи, exact auto-owned paths входят в её
+acceptance и safe-offline authorization, включить дельту в handoff этой же
+задачи: не создавать ради документации новый claim, branch или commit.
 
 Отчёт должен перечислить изменённые секции, backup paths, пропущенные proposals
 и факт отсутствия изменений в `tasks.json` и team-owned документах.
@@ -59,7 +63,8 @@ team docs/tasks lifecycle. Оформить это отдельным maintenanc
 
 - Не переписывать AGENTS.md целиком.
 - Не удалять ручные правки или неизвестные пути.
-- Не писать до показа плана и approval.
+- Не писать до показа дельта-плана. Approval обязателен только без покрывающей
+  safe-offline authorization либо для human-owned/неоднозначной секции.
 - Не редактировать team-owned документы даже ради согласования с кодом.
 - Не обновлять task status, attempts, evidence или completed sections.
 - Не оставлять refresh-артефакты в dirty diff следующей задачи.

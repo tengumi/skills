@@ -20,7 +20,7 @@
 
 Напрямую:
 
-- безопасные read-only inspection-команды;
+- безопасные read-only проверочные команды;
 - `<commands explicitly allowed by environment policy>`.
 
 Если route не определён, остановиться и запросить решение. Watcher является
@@ -37,5 +37,8 @@ Runtime JSON в этих каталогах должен быть исключё
 ## Safety
 
 - Не помещать secrets в команды, request, report или audit log.
-- Protected paths и branches брать из repo `AGENTS.md` и team policy.
+- Protected paths брать из repo `AGENTS.md` и team policy. Рабочие ветки всегда
+  создавать только как `feature/<ID>[-short-description]`, где `ID` —
+  `task.ticket`, если он задан, иначе `task.id`; отсутствие Jira-ID не является
+  checkpoint.
 - После трёх одинаковых ошибок вызвать tasks-mcp blocker flow и остановиться.

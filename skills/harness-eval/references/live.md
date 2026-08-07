@@ -17,6 +17,9 @@ API, MCP tool, очередь либо другой внешний runtime и д
 - Назвать source/provider и boundary classification, если они применимы.
 - Выбрать sanitized/near-real inputs и правила хранения reports.
 - Подтвердить process topology и безопасный DB/migration mode до startup.
+- Подтвердить, что target — реальная разрешённая система. Local protocol stub,
+  fake provider/session или test-only DI могут быть только preflight evidence и
+  не удовлетворяют этому режиму.
 
 Не угадывать placeholder path. Сначала найти documented data; если их нет,
 записать assumption/blocker в report.
@@ -52,6 +55,10 @@ Live eval никогда не входит в default unit CI. Failure внеш�
 маскировать как code defect или success: зафиксировать состояние и blocker.
 Mock/static test не заменяет фактическое process registration, artifact/image
 startup или boundary proof.
+
+Network-free real-app/lifespan проверку с production DI и protocol-faithful
+transport stub выполнять до live через `harness-production-readiness:process`.
+Она подтверждает wiring/lifecycle, но не доступность и поведение внешней системы.
 
 При destructive или migration-capable side effect использовать только
 isolated/confirmed-owned target либо доказанный read-only/migration-disabled
