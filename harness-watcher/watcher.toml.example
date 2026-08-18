@@ -48,6 +48,8 @@ sync_after_exec = false
 
 # Bash-команды, которые выполняются ПЕРЕД каждой командой в request.
 # Используй для активации venv, экспорта PATH или установки переменных окружения.
+# Request-команды не должны читать/печатать значения этих переменных; watcher
+# блокирует известные env/.env/secret introspection patterns до выполнения.
 # ВАЖНО: venv должен лежать ВНЕ local_repo_root, иначе при tar-sync он затрётся.
 #
 # Примеры:
@@ -102,4 +104,7 @@ exclude = [
     "dist",
     "build",
     "*.egg-info",
+    ".env",
+    ".env.local",
+    ".env.production",
 ]

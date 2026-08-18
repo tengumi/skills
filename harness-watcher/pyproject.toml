@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "harness-watcher"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local watcher that bridges a trusted remote exec-request queue to a team workstation."
 requires-python = ">=3.9"
 dependencies = []

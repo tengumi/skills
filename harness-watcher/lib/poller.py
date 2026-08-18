@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from lib.config import Config
 
 
-WATCHER_VERSION = "0.2.0"
+WATCHER_VERSION = "0.3.0"
 
 _ALLOWED_CONTEXT_KEYS = {
     "branch",

@@ -147,6 +147,11 @@ HARNESS_WATCHER_CONFIG=/path/to/config.toml .venv/bin/harness-watcher --check
 - Execution profile — стабильный SHA-256 версии watcher/Python, безопасных
   execution-настроек и хешей выбранного окружения. Сам `pre_exec_hook` и его
   значения в report не раскрываются.
+- До запуска всей цепочки watcher отклоняет известные команды чтения значений:
+  `env`/`printenv`, вывод `$VAR`, inline runtime environment dump, чтение или
+  копирование `.env*`, `/proc/*/environ` и распространённые secret-store reads.
+  В report возвращается только безопасная причина `secret-safety policy`, без
+  исходной команды. Presence-only checks и `.env.example` разрешены.
 - Regex-фильтр применяется только к stdout команд с exit code `0`.
 - Для упавших команд regex-фильтр не применяется; при включённом `strip_ansi`
   удаляются только управляющие ANSI-последовательности.
@@ -164,6 +169,7 @@ harness-watcher/
 ├── lib/
 │   ├── __init__.py
 │   ├── audit.py
+│   ├── command_policy.py
 │   ├── config.py
 │   ├── executor.py
 │   ├── filter.py
@@ -196,4 +202,10 @@ fail-closed sync, fingerprint дерева, process-group timeout, исполн�
 - `strict_host_key_checking=false` — явный высокорисковый opt-out только для
   изолированного теста; для командного и production-использования он запрещён.
 - Не храните секреты в request, report, конфиге репозитория или audit log.
+- Не используйте watcher для исследования значений окружения. Имена переменных
+  берите из config/schema/`.env.example`; наличие проверяйте exit code с
+  фиксированным выводом, а обычные приложения запускайте через утверждённый
+  secret injection. Command policy — защита от типовых ошибок, но не полноценная
+  shell sandbox: пользователь watcher должен видеть только минимально нужные
+  секреты.
 - Watcher должен принимать requests только из доверенного репозитория и SSH-контура.

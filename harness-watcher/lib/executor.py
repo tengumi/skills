@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lib.command_policy import inspect_command
+
 if TYPE_CHECKING:
     from lib.config import Config
 
@@ -83,6 +85,33 @@ def execute_request(cfg: "Config", request: dict, on_progress=None) -> ExecResul
             results=[],
             error="no commands to execute",
         )
+
+    # Validate the whole request before starting its first command.  This keeps
+    # a later unsafe command from producing a partial side effect and prevents
+    # the original command from being echoed into report/progress output.
+    for idx, cmd_spec in enumerate(commands, start=1):
+        cmd_str = cmd_spec.get("cmd") if isinstance(cmd_spec, dict) else None
+        if not cmd_str:
+            continue
+        violation = inspect_command(cmd_str)
+        if violation is not None:
+            return ExecResult(
+                request_id=request_id,
+                task_id=task_id,
+                started_at=started_iso,
+                completed_at=_now(),
+                duration_ms=int((time.monotonic() - started) * 1000),
+                overall_status="error",
+                results=[CommandResult(
+                    cmd="[blocked by watcher secret-safety policy]",
+                    cwd=str(cmd_spec.get("cwd", ".")),
+                    exit_code=-4,
+                    stdout="",
+                    stderr=violation.message,
+                    duration_ms=0,
+                )],
+                error=f"command {idx} rejected by secret-safety policy ({violation.code})",
+            )
 
     # Бюджет времени на всю сессию
     remaining = timeout

@@ -148,6 +148,13 @@ pre_exec_hook = "source /work/harness-envs/service/bin/activate && export PATH=$
 секреты прямо в TOML, если они могут попасть в диагностику или резервные копии;
 используйте утверждённый командой secret injection.
 
+Codex не должен проверять этот injection чтением значения. Watcher отклоняет
+`env`/`printenv`, `echo $VAR`, `grep`/`rg`/`cat` по `.env*`, inline runtime dumps
+и известные secret-store reads до запуска всей цепочки. Разрешена проверка
+наличия через exit code с фиксированным выводом, например
+`test -n "${API_TOKEN+x}" && echo configured`, и обычный запуск приложения,
+которое не печатает секрет.
+
 ## 7. Проверьте SSH и права
 
 ```bash
@@ -374,6 +381,7 @@ harness-watcher/
 ├── lib/
 │   ├── __init__.py
 │   ├── audit.py
+│   ├── command_policy.py
 │   ├── config.py
 │   ├── executor.py
 │   ├── filter.py
@@ -393,6 +401,7 @@ harness-watcher/
 - `remote_fs.py` — SSH/SCP и tar-sync (также содержит legacy rsync helpers,
   которые текущий poller не вызывает), а также единые secure SSH/SCP options;
 - `executor.py` — последовательный запуск, hook, streaming, timeout и truncation;
+- `command_policy.py` — preflight-блокировка чтения env/secret values;
 - `filter.py` — безопасная фильтрация stdout;
 - `poller.py` — очередь request/report, sync и state;
 - `audit.py` — JSONL audit log;
@@ -418,5 +427,7 @@ Unit-тесты не заменяют smoke-тест SSH/SCP/tar на разре
 - [ ] host fingerprint независимо проверен, strict checking включён;
 - [ ] audit/state paths защищены правами ОС;
 - [ ] request/report не содержат секретов;
+- [ ] Codex получает только names/references и presence/redacted status, но не
+      значения env/`.env`/credential/secret-store;
 - [ ] пройдены unit-тесты и smoke на тестовом репозитории;
 - [ ] назначены владелец процесса и порядок остановки/ротации.

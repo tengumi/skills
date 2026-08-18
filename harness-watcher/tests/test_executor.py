@@ -9,12 +9,15 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from lib import poller as poller_module
 from lib import remote_fs
 from lib.audit import AuditLog
 from lib.config import Config
+from lib.command_policy import inspect_command
 from lib.executor import execute_request
 from lib.poller import (
     Poller,
@@ -178,7 +181,7 @@ def test_timeout_terminates_the_whole_process_group(tmp_path):
             "cmd": (
                 "python3 -c 'import pathlib,time; p=pathlib.Path(\"heartbeat.txt\"); "
                 "[(p.write_text(str(i)), time.sleep(.1)) for i in range(300)]' "
-                "& child=$!; echo $child > child.pid; wait $child"
+                "& echo $! > child.pid; wait"
             ),
             "cwd": ".",
         }],
@@ -202,16 +205,113 @@ def test_timeout_terminates_the_whole_process_group(tmp_path):
 
 
 def test_pre_exec_hook_applies(tmp_path):
-    """pre_exec_hook выполняется перед командой и его env видна команде."""
+    """Hook env можно использовать без вывода его значения в report."""
     cfg = make_cfg(tmp_path)
     cfg.pre_exec_hook = "export FOO=hello_from_hook"
     req = {
         "request_id": "test-hook",
-        "commands": [{"cmd": "echo $FOO", "cwd": "."}],
+        "commands": [{"cmd": "test -n \"${FOO+x}\" && echo hook-ok", "cwd": "."}],
     }
     r = execute_request(cfg, req)
     assert r.overall_status == "success"
-    assert "hello_from_hook" in r.results[0].stdout
+    assert "hook-ok" in r.results[0].stdout
+    assert "hello_from_hook" not in r.results[0].stdout
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env",
+        "printenv API_TOKEN",
+        "rg '^API_TOKEN=' .env",
+        "rg TOKEN --glob '.env*' .",
+        "rg TOKEN -g '.env*' .",
+        "grep -R TOKEN --include='.env*' .",
+        "find . -name '.env*' -exec grep TOKEN {} +",
+        "grep TOKEN .env.production",
+        "cat .env",
+        "nice cat .env",
+        "timeout 5 cat .env",
+        "stdbuf -oL cat .env",
+        "busybox cat .env",
+        "dd if=.env of=/dev/null",
+        "git -C . show HEAD:.env",
+        "cat certs/client.key",
+        "cat credentials.json",
+        "source .env",
+        "export",
+        "export -n",
+        "declare -x",
+        "typeset",
+        "echo \"$API_TOKEN\"",
+        "python3 -c 'import os; print(os.environ)'",
+        "node -e 'console.log(process.env)'",
+        "bash -lc 'printenv API_TOKEN'",
+        "python3 -c \"from pathlib import Path; print(Path('.env').read_text())\"",
+        "node -e 'console.log(require(\"fs\").readFileSync(\".env\", \"utf8\"))'",
+        "ruby -e 'puts File.read(\".env\")'",
+        "cat /proc/self/environ",
+        "kubectl get secret app -o yaml",
+        "kubectl --context dev get secret app -o yaml",
+        "kubectl get -n ns secret app -o yaml",
+        "sudo kubectl get secret app -o yaml",
+        "aws --profile dev secretsmanager get-secret-value --secret-id app",
+        "vault -address=https://vault.example kv get app",
+    ],
+)
+def test_secret_introspection_policy_rejects_known_patterns(command):
+    violation = inspect_command(command)
+    assert violation is not None, command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rg 'API_TOKEN' .env.example",
+        "cat < .env.example",
+        "test -n \"${API_TOKEN+x}\"",
+        "test -f .env",
+        "env TESTING=1 make test",
+        "env -i make verify",
+        "command -v env",
+        "python3 -m pytest tests/test_env_config.py",
+        "python3 -c \"from pathlib import Path; assert Path('.env').exists()\"",
+        "python3 -c 'print(\"ENV\")'",
+        "node -e 'console.log(\"ENV\")'",
+        "make verify",
+        "set -euo pipefail; make test",
+    ],
+)
+def test_secret_introspection_policy_allows_presence_and_normal_checks(command):
+    assert inspect_command(command) is None, command
+
+
+def test_secret_introspection_is_blocked_before_any_command_runs(tmp_path):
+    cfg = make_cfg(tmp_path)
+    (cfg.local_repo_root / ".env").write_text("API_TOKEN=must-never-appear\n")
+    req = {
+        "request_id": "test-secret-policy",
+        "commands": [
+            {"cmd": "touch should-not-exist", "cwd": "."},
+            {"cmd": "rg '^API_TOKEN=' .env", "cwd": "."},
+        ],
+    }
+
+    progress_events = []
+    result = execute_request(
+        cfg,
+        req,
+        on_progress=lambda event, **fields: progress_events.append((event, fields)),
+    )
+
+    assert result.overall_status == "error"
+    assert result.results[0].exit_code == -4
+    assert result.results[0].cmd == "[blocked by watcher secret-safety policy]"
+    assert progress_events == []
+    assert not (cfg.local_repo_root / "should-not-exist").exists()
+    serialized = json.dumps(result, default=lambda obj: obj.__dict__)
+    assert "must-never-appear" not in serialized
+    assert "rg '^API_TOKEN=' .env" not in serialized
 
 
 def test_pre_exec_hook_empty_default(tmp_path):
