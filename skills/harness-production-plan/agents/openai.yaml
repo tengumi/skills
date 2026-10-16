@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Production Plan"
+  short_description: "Планирует полный этап production-доводки"
+  default_prompt: "Use $harness-production-plan to build an evidence-based ordered Stage B task queue for this industrialization."

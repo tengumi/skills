@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Eval"
+  short_description: "Проверяет golden, parity и live outcomes"
+  default_prompt: "Примени $harness-eval с явным skill_mode: golden, prototype-parity или live."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harness Lead"
+  short_description: "Ведёт опромышливание до следующего checkpoint"
+  default_prompt: "Примени $harness-lead и продолжай только до следующего человеческого checkpoint."

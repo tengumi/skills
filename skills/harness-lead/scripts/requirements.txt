@@ -1,0 +1,2 @@
+# Only the planning helper needs this; Tasks MCP and watcher stay stdlib-only.
+jsonschema>=4.18,<5
