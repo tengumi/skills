@@ -1,4 +1,0 @@
-interface:
-  display_name: "Harness Golden"
-  short_description: "Создаёт и проверяет реалистичные эталонные наборы"
-  default_prompt: "Примени $harness-golden: по моим примерам, контракту и правилам подготовь небольшой набор в режиме business_review_draft с независимой проверкой ответов."
