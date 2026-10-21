@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: harness-watcher
-Version: 0.3.0
-Summary: Local watcher that bridges a trusted remote exec-request queue to a team workstation.
-Requires-Python: >=3.9
-Provides-Extra: dev
-Requires-Dist: pytest>=8.0; extra == "dev"
