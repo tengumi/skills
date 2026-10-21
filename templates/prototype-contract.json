@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "prototype_root": "<absolute-or-repo-relative-source>",
+  "prototype_revision": null,
+  "prompts": [],
+  "schemas": [],
+  "llm_calls": [],
+  "constants": [],
+  "workflow_steps": [],
+  "entrypoints": [],
+  "boundary_signatures": [],
+  "file_io_semantics": [],
+  "retry_and_error_handling": [],
+  "terminal_states": [],
+  "side_effect_rules": [],
+  "approved_target_contracts": [],
+  "intentional_deviations": []
+}

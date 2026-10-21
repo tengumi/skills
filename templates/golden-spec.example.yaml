@@ -1,0 +1,127 @@
+# Необязательная форма входного запроса, не готовый run.json.
+# Можно описать задачу словами и приложить источники: harness-golden сам составит
+# профиль. Значения бюджетов ниже — пример, не универсальные требования.
+# Для существующего run сохраняются его frozen contract и действительные проверки.
+version: "3.0"
+
+run:
+  id: "<stable-run-id>"
+  seed: 42
+  generator_version: "<code/model/prompt version or hash>"
+  mode: "business_review_draft" # либо benchmark_release
+  accepted_cases: 20
+  candidate_budget: 35
+  repair_budget_per_case: 1
+  pilot:
+    enabled: true
+    limit_units: 5
+    review_sample_rate: 0.4
+
+intent:
+  question: "<one precise quality question>"
+  scenarios:
+    - "<scenario/edge case to cover>"
+  out_of_scope:
+    - "<explicit exclusion>"
+
+agent_contract:
+  input:
+    description: "<what one fixture contains>"
+    schema_ref: "<path/version or prose contract>"
+  output:
+    description: "<expected agent output>"
+    schema_ref: "<path/version or prose contract>"
+
+# Shape/style/distribution only. A reference is not truth unless explicitly
+# repeated below as a labeled reference-answer source.
+input_references:
+  - id: "input-reference-1"
+    path: "<repo-relative sanitized path>"
+    revision: "<hash/version>"
+    family: "<structural family>"
+    anchor_candidate: true
+    hold_out_candidate: false
+
+# Correctness sources, in explicit precedence order. Never include secrets.
+truth_sources:
+  - id: "truth-source-1"
+    path: "<standard/schema/validator/labeled-pair path>"
+    revision: "<hash/version>"
+    kind: "executable|rule-grounded|reference-answer|judge-rubric"
+    priority: 1
+
+correctness:
+  description: "<operational rule for deriving the right answer>"
+  evaluation_unit: "<smallest independently checkable unit>"
+  expected_output_shape: "<semantic schema>"
+  equivalence_rule: "<when two differently shaped answers mean the same>"
+  ambiguity_policy: "quarantine|human-adjudication"
+
+evaluation_axis:
+  - id: "axis-1"
+    description: "<independently checkable requirement/dimension>"
+    truth_source_ids: ["truth-source-1"]
+
+oracle:
+  strongest_allowed: "executable|rule-grounded|reference-answer|judge"
+  executable_command: "<safe command or N/A>"
+  judge_rubric_ref: "<path or N/A>"
+  probe:
+    known_good: "<fixture/reference with known answer>"
+    changed_case: "<controlled semantic change>"
+    required_evidence: "<machine result or cited rule evidence>"
+
+coverage:
+  dimensions:
+    - "evaluation_axis"
+    - "structural_family"
+    - "difficulty"
+  difficulties: ["obvious", "subtle", "false_positive"]
+  allow_multi_unit_cases: false
+  assignment_algorithm: "seeded-stratified-round-robin"
+
+size_contract:
+  method: "<serialized-bytes|tokens|rows|N/A>"
+  buckets: ["<bucket definitions or N/A>"]
+
+# Used later by harness-eval:golden; synthesis does not run the tested agent.
+comparison:
+  method: "exact|field-level|coverage|execution-match|semantic|llm-judge"
+  threshold: "<task-specific threshold>"
+  repeat_count: 1
+
+verification:
+  require_fresh_context: true
+  draft_policy: "один независимый вывод каждого ответа; повтор по конкретному риску"
+  release_policy: "два независимых семантических вывода с разбором расхождений либо полный executable oracle с controls и проверкой привязок"
+  agreement_rule: "<exact/semantic/evidence-backed adjudication>"
+  verifier_input_allowlist:
+    - "fixture"
+    - "truth_sources"
+    - "correctness_and_equivalence_rules"
+    - "expected_output_schema"
+
+review:
+  external_review_required: true # выбрать по задаче, не считать уже выполненной
+  prioritize: ["quarantine", "borderline", "false_positive"]
+  approver: "<role/name>"
+
+output:
+  run_root: "<approved path>/<run_id>"
+  package_layout: "compact-v2"
+  service_files: ["run.json", "cases.jsonl", "audit.jsonl"]
+  results_directory: "results"
+  preferred_human_format: "<один основной формат по задаче>"
+  # Итог — в run.summary, отбор — selected_case_ids, файлы results — run.files
+  # с sha256/case_ids и results_entrypoint. Отдельный report.md не нужен.
+  # Input, run.evaluation и expected имеют текущие hashes в audit.
+  # Draft не scoring_ready; release требует доказанных проверок и нужной приёмки.
+  # Quarantined/pending остаются в служебных данных, не в results.
+
+data_policy:
+  synthetic_only: true
+  allow_pii: false
+  allow_confidential_fragments: false
+  allowed_storage: "<repo-relative path or approved external system>"
+  retention: "<policy>"
+  external_oracle_authorization: "N/A|<approver/scope/reference>"

@@ -1,0 +1,106 @@
+# <SERVICE_NAME>
+
+## Назначение
+
+<Что делает сервис, кто его вызывает и какой результат получает.>
+
+## Источники истины
+
+- Бизнес-поведение prototype: `<PROTOTYPE_PATH>` и `docs/harness/prototype-contract.json`.
+- Архитектура target: `<TEAM_TEMPLATE_OR_DOCS>`.
+- Новые внешние boundaries: утверждённый паспорт подключений и доступные
+  контракты из `docs/harness/`; пробелы не заполнять догадками.
+- Очередь: `docs/harness/tasks.json`; lifecycle ведёт tasks-mcp.
+
+## Самостоятельность и инструкции
+
+- В рамках системных и платформенных правил текущий запрос пользователя имеет
+  приоритет над рекомендациями скиллов. Используй уже выданное разрешение на
+  task/plan; не спрашивай его повторно перед обычным edit, verify, commit или submit.
+- Рутинные решения принимай по шаблону, коду и правилам команды. При отсутствии
+  внешнего входа останавливай только зависящую от него часть и продолжай доступную.
+- Если остановку требует скилл, укажи путь к `SKILL.md`, точную цитату и
+  недостающий вход. Отличай обязательное правило от своей интерпретации.
+- Отвечай кратко, на языке пользователя: результат, существенные изменения,
+  проверка и только реальные оставшиеся ограничения.
+
+## Стек
+
+- Язык/runtime: `<...>`
+- Framework: `<...>`
+- Package/build tool: `<...>`
+
+## Быстрые команды
+
+```bash
+<INSTALL_COMMAND>
+<VERIFY_COMMAND>
+<DEV_OR_SMOKE_COMMAND>
+```
+
+Не оставлять placeholder-команду после bootstrap. Если команда неизвестна,
+зафиксировать blocker, а не изобретать target.
+
+## Карта кода
+
+- `<path>` — `<responsibility>`
+- `<path>` — `<responsibility>`
+- `<path>` — `<responsibility>`
+
+## Data boundaries
+
+| Данные | Prototype mechanism | Approved target mechanism | Owner/contract |
+|---|---|---|---|
+| `<input/output>` | `<file/in-memory/external>` | `<OPEN or approved>` | `<owner/path>` |
+
+Отсутствующий в prototype endpoint/tool/protocol не восстанавливать из
+догадок. До approval допустим temporary file-backed/in-memory adapter.
+
+## Execution policy
+
+- Не читать `.env*`, `*.env`, значения env, ключи и credentials — ни напрямую,
+  ни через helper, watcher, MCP или субагента. Использовать имена настроек и
+  фиксированный статус наличия без значений. Пример конфигурации не должен
+  содержать настоящих секретов.
+- Файловую защиту задаёт среда запуска, не этот документ. Не обходить deny-read
+  повышением разрешений или сменой инструмента. Запуск без проверенного профиля
+  нельзя объявлять защищённым; чтение настоящего секрета не является тестом.
+- Команды выполнять напрямую, если среда и policy это разрешают.
+- `harness-request-exec` использовать только когда watcher обязателен или
+  подходящий runtime локально недоступен.
+- Live network/LLM/DB/API side effect требует отдельного approval независимо от
+  способа запуска.
+
+## Boundaries
+
+- Protected branches: `<main/master/develop/release policy>`.
+- Единственный допустимый формат task branch:
+  `feature/<ID>[-short-description]`, где `ID` — `task.ticket`, если он задан,
+  иначе `task.id`. Другие префиксы запрещены для всех типов задач, включая
+  bugfix и hotfix. Не запрашивать Jira только ради ветки.
+- Protected paths: `<CI/Docker/migrations/dependencies/generated files>`.
+- Secrets, raw LLM/RAG output, PII и confidential runtime data не коммитить.
+- Team-owned docs не переписывать; расхождение оформлять proposal.
+
+## Протокол задачи
+
+1. Прочитать этот файл и текущую задачу.
+2. Claim ровно одну задачу через tasks-mcp.
+3. Передать `use_skill` и `skill_mode` без догадок.
+4. Зафиксировать baseline, изменить только acceptance scope.
+5. Выполнить проверки по `task.verification_level`: scoped — затронутое
+   поведение; capability — законченная функция; runtime — настоящий app/DI/lifespan;
+   bundle — чистая установка, полный verify и сборка. Для legacy task выбрать
+   минимально достаточный уровень по acceptance. Не повторять полный verify/build
+   после каждой мелкой задачи; повтор нужен при изменении проверяемых входов,
+   сбое или конкретном неразрешённом сомнении. Обязательные критерии не пропускать.
+6. Пройти `harness-pre-commit-check`, commit и submit с evidence.
+7. Убедиться, что task branch чист и queue lifecycle не попал в feature-diff.
+
+## Harness docs
+
+- `docs/harness/prototype-analysis.md`
+- `docs/harness/ds-precheck.md`
+- `docs/harness/prototype-contract.json`
+- `docs/harness/production-applicability.md`
+- `docs/harness/tasks.json`

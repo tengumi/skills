@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Watcher runtime
+# state.json содержит обработанные request_id — runtime, не для коммита
+state.json
+*.audit.log
+audit.log
+docs/harness/exec-requests/*.json
+docs/harness/exec-reports/*.json
+docs/harness/exec-processed/*.json
+
+# Personal config — содержит твои SSH credentials!
+# Только .example файлы коммитятся.
+config.toml
+!*.toml.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets and private material
+*.pem
+*.key
+*.crt
+**/secrets/
+**/credentials/
+
+# Логи и временные файлы
+*.log
+*.tmp
+.harness-watcher-tmp/
